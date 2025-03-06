@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Plus } from "lucide-react"
+import { Plus, X } from "lucide-react"
 import {
   Tabs,
   TabsList,
@@ -30,6 +30,11 @@ import {
 import { TypographyH3 } from "@/components/ui/typogrpahy-h3"
 import { useRouter } from "next/navigation"
 import { AlertCircle } from "lucide-react"
+
+const STORAGE_KEYS = {
+  UNITS: 'barbell-calc-units',
+  BAR_WEIGHT: 'barbell-calc-bar-weight'
+} as const
 
 const createFormSchema = (isPercentagesCalculation: boolean) => {
   return z.object({
@@ -90,7 +95,13 @@ export function WeightCalculatorForm() {
   const router = useRouter()
 
   // 1. Initialize state with default values
-  const [units, setUnits] = useState<"KG" | "LB">("KG")
+  const [units, setUnits] = useState<"KG" | "LB">(() => {
+    // Try to get from localStorage, fallback to "KG"
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(STORAGE_KEYS.UNITS) as "KG" | "LB") || "KG"
+    }
+    return "KG"
+  })
   const [isPercentagesCalculation, setIsPercentagesCalculation] = useState(true)
   const [percentageCount, setPercentageCount] = useState(1)
 
@@ -114,10 +125,13 @@ export function WeightCalculatorForm() {
     if (typeof window !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search)
 
-      // Set units from URL
+      // Set units from URL or localStorage
       const urlUnits = searchParams.get('units') as "KG" | "LB"
+      const storedUnits = localStorage.getItem(STORAGE_KEYS.UNITS) as "KG" | "LB"
       if (urlUnits) {
         setUnits(urlUnits)
+      } else if (storedUnits) {
+        setUnits(storedUnits)
       }
 
       // Set calculation type from URL
@@ -126,15 +140,18 @@ export function WeightCalculatorForm() {
         setIsPercentagesCalculation(urlIsPercentages !== 'false')
       }
 
+      // Get stored barWeight
+      const storedBarWeight = localStorage.getItem(STORAGE_KEYS.BAR_WEIGHT)
+
       // Get percentages/weights from URL
       const valueEntries = Array.from(searchParams.entries())
         .filter(([key]) => key.startsWith('value'))
         .sort((a, b) => a[0].localeCompare(b[0]))
 
-      // Set form values from URL
+      // Set form values from URL or localStorage
       form.reset({
         PR: searchParams.get('PR') || "",
-        barWeight: searchParams.get('barWeight') || "",
+        barWeight: searchParams.get('barWeight') || storedBarWeight || "",
         percentages: valueEntries.length > 0
           ? valueEntries.map(([_, value]) => value)
           : [""],
@@ -189,6 +206,19 @@ export function WeightCalculatorForm() {
     return () => subscription.unsubscribe()
   }, [form, units, isPercentagesCalculation])
 
+  // Add effect to save units to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.UNITS, units)
+  }, [units])
+
+  // Add effect to save barWeight to localStorage
+  useEffect(() => {
+    const barWeight = form.getValues().barWeight
+    if (barWeight) {
+      localStorage.setItem(STORAGE_KEYS.BAR_WEIGHT, barWeight)
+    }
+  }, [form.watch('barWeight')])
+
   function onSubmit(alternateUnit: boolean = false) {
     return (values: z.infer<ReturnType<typeof createFormSchema>>) => {
       const searchParams = new URLSearchParams()
@@ -219,6 +249,13 @@ export function WeightCalculatorForm() {
     setPercentageCount(prev => prev + 1)
     const currentPercentages = form.getValues().percentages
     form.setValue('percentages', [...currentPercentages, ""])
+  }
+
+  const removePercentage = (index: number) => {
+    const currentPercentages = form.getValues().percentages
+    const newPercentages = currentPercentages.filter((_, i) => i !== index)
+    form.setValue('percentages', newPercentages)
+    setPercentageCount(prev => prev - 1)
   }
 
   return (
@@ -342,14 +379,27 @@ export function WeightCalculatorForm() {
                   name={`percentages.${index}`}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{isPercentagesCalculation ? "Porcentaje" : "Peso"} {index + 1}</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder={isPercentagesCalculation ? "e.g. 85" : "e.g. 100"}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <FormLabel>{isPercentagesCalculation ? "Porcentaje" : "Peso"} {index + 1}</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder={isPercentagesCalculation ? "e.g. 85" : "e.g. 100"}
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="self-end"
+                          onClick={() => removePercentage(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </FormItem>
                   )}
                 />
@@ -383,7 +433,7 @@ export function WeightCalculatorForm() {
                   type="submit"
                   className="w-full"
                 >
-                  Calcular en {units}
+                  Calcular
                 </Button>
                 <Button
                   type="button"
