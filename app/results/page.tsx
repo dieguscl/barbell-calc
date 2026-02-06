@@ -1,4 +1,4 @@
-import { calculatePlateConfigurations } from "@/lib/calculations";
+import { calculatePlateConfigurations, calculatePlateInventory } from "@/lib/calculations";
 import { PlateConfigurations } from "./components/plate-configurations";
 import { ResultsTitle } from "./components/results-title";
 import { SearchParams } from "next/dist/server/request/search-params";
@@ -36,11 +36,14 @@ export default async function ResultsPage({
     isPercentages,
   });
 
+  const inventory = calculatePlateInventory(configurations);
+
   return (
-    <main className="container mx-auto p-4">
+    <main className="container mx-auto p-4 max-w-2xl">
       <ResultsTitle />
       <PlateConfigurations
         configurations={configurations}
+        inventory={inventory}
         units={units}
         sourceUnits={sourceUnits}
         PR={PR}

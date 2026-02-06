@@ -53,6 +53,11 @@ export const translations = {
     closestConfig: "Closest configuration",
     weight: "Weight",
     calculateAnother: "Calculate another weight",
+
+    // Plate inventory
+    grabThesePlates: "Grab these plates",
+    perSide: "per side",
+    discsTotal: "discs total",
   },
   es: {
     // App
@@ -106,6 +111,11 @@ export const translations = {
     closestConfig: "Configuración más cercana",
     weight: "Peso",
     calculateAnother: "Calcular otro peso",
+
+    // Plate inventory
+    grabThesePlates: "Busca estos discos",
+    perSide: "por lado",
+    discsTotal: "discos en total",
   },
   pt: {
     // App
@@ -159,6 +169,11 @@ export const translations = {
     closestConfig: "Configuração mais próxima",
     weight: "Peso",
     calculateAnother: "Calcular outro peso",
+
+    // Plate inventory
+    grabThesePlates: "Pegue estes discos",
+    perSide: "por lado",
+    discsTotal: "discos no total",
   },
 } as const
 
