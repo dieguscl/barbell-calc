@@ -385,90 +385,90 @@ export function WeightCalculatorForm() {
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit(false))} className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="movement"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        <TypographyH3>{t("movement")}</TypographyH3>
-                      </FormLabel>
-                      {isAddingMovement || savedMovements.length === 0 ? (
-                        <div className="flex gap-2">
-                          <FormControl>
-                            <Input 
-                              placeholder={t("movementPlaceholder")}
-                              {...field} 
-                              autoFocus={isAddingMovement}
-                            />
-                          </FormControl>
-                          {savedMovements.length > 0 && (
-                            <Button 
-                              type="button" 
-                              variant="ghost" 
-                              size="icon"
-                              onClick={() => setIsAddingMovement(false)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      ) : (
-                        <Select 
-                          onValueChange={(value) => {
-                            if (value === "add_new") {
-                              setIsAddingMovement(true);
-                              form.setValue('movement', "");
-                              form.setValue('PR', "");
-                            } else {
-                              field.onChange(value);
-                            }
-                          }} 
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder={t("selectMovement")} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {savedMovements.map((m) => (
-                              <div key={m} className="flex items-center justify-between px-2 py-1 hover:bg-accent rounded-sm group">
-                                <SelectItem value={m} className="flex-1 hover:bg-transparent focus:bg-transparent">
-                                  {m.charAt(0).toUpperCase() + m.slice(1)}
-                                </SelectItem>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    deleteMovement(m);
-                                  }}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ))}
-                            <SelectSeparator />
-                            <SelectItem value="add_new" className="text-primary font-medium">
-                              <div className="flex items-center gap-2">
-                                <Plus className="h-4 w-4" />
-                                {t("addNew")}
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {isPercentagesCalculation && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="movement"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          <TypographyH3>{t("movement")}</TypographyH3>
+                        </FormLabel>
+                        {isAddingMovement || savedMovements.length === 0 ? (
+                          <div className="flex gap-2">
+                            <FormControl>
+                              <Input 
+                                placeholder={t("movementPlaceholder")}
+                                {...field} 
+                                autoFocus={isAddingMovement}
+                              />
+                            </FormControl>
+                            {savedMovements.length > 0 && (
+                              <Button 
+                                type="button" 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => setIsAddingMovement(false)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ) : (
+                          <Select 
+                            onValueChange={(value) => {
+                              if (value === "add_new") {
+                                setIsAddingMovement(true);
+                                form.setValue('movement', "");
+                                form.setValue('PR', "");
+                              } else {
+                                field.onChange(value);
+                              }
+                            }} 
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder={t("selectMovement")} />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {savedMovements.map((m) => (
+                                <div key={m} className="flex items-center justify-between px-2 py-1 hover:bg-accent rounded-sm group">
+                                  <SelectItem value={m} className="flex-1 hover:bg-transparent focus:bg-transparent">
+                                    {m.charAt(0).toUpperCase() + m.slice(1)}
+                                  </SelectItem>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      deleteMovement(m);
+                                    }}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ))}
+                              <SelectSeparator />
+                              <SelectItem value="add_new" className="text-primary font-medium">
+                                <div className="flex items-center gap-2">
+                                  <Plus className="h-4 w-4" />
+                                  {t("addNew")}
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                {isPercentagesCalculation && (
                   <FormField
                     control={form.control}
                     name="PR"
@@ -484,8 +484,8 @@ export function WeightCalculatorForm() {
                       </FormItem>
                     )}
                   />
-                )}
-              </div>
+                </div>
+              )}
 
               <FormField
                 control={form.control}

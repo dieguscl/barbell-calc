@@ -22,6 +22,7 @@ interface Props {
   sourceUnits: "KG" | "LB"
   PR?: number
   isPercentages: boolean
+  editUrl: string
 }
 
 function PlateSummary({ plates, units }: { plates: number[]; units: "KG" | "LB" }) {
@@ -50,7 +51,7 @@ function PlateSummary({ plates, units }: { plates: number[]; units: "KG" | "LB" 
   )
 }
 
-export function PlateConfigurations({ configurations, inventory, units, sourceUnits, PR, isPercentages }: Props) {
+export function PlateConfigurations({ configurations, inventory, units, sourceUnits, PR, isPercentages, editUrl }: Props) {
   const { t } = useLocale()
 
   return (
@@ -97,8 +98,8 @@ export function PlateConfigurations({ configurations, inventory, units, sourceUn
       ))}
 
       <Button asChild className="w-full">
-        <Link href="/">
-          {t("calculateAnother")}
+        <Link href={editUrl}>
+          {t("editConfig")}
         </Link>
       </Button>
     </div>

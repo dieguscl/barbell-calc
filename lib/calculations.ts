@@ -73,11 +73,10 @@ export function calculatePlateConfigurations({
     return (value - equivalentBarWeight) / 2
   })
 
-  // Step 2: Find the smallest set of plate types that achieves the same
-  // closest weights across ALL configs (cross-config consistency)
+  // Step 2: Find the smallest set of plate types that works consistently
   const optimalPlates = findOptimalPlateSubset(targetsPerSide, availablePlates)
 
-  // Step 3: Solve each config with the optimal plate subset
+  // Step 3: Solve each config with the optimal plate subset using heavy-first
   return convertedValues.map((value, i) => {
     let targetWeight: number
     if (isPercentages) {
@@ -87,7 +86,7 @@ export function calculatePlateConfigurations({
       targetWeight = value
     }
 
-    const plateConfig = calculatePlatesOptimal(targetsPerSide[i], optimalPlates)
+    const plateConfig = calculatePlatesConsistent(targetsPerSide[i], optimalPlates)
     const actualTotalWeight = plateConfig.totalWeight * 2 + equivalentBarWeight
 
     return {
@@ -101,16 +100,15 @@ export function calculatePlateConfigurations({
 }
 
 /**
- * Finds the smallest subset of plate types that can achieve the same
- * closest weight for ALL configurations as using the full plate set.
+ * Finds the smallest subset of plate types that works consistently
+ * across ALL configurations, enforcing heavy plate usage.
  *
- * Example: PR=100kg, bar=20kg
- *   70% → 25kg/side, 80% → 30kg/side, 90% → 35kg/side
- *   Independent DP: {25,5} for 70%+80%, {20,15} for 90% → 4 plate types
- *   Cross-optimized: {25,5} for all three → only 2 plate types
- *     70%: [25], 80%: [25,5], 90%: [25,5,5]
+ * For each candidate subset, it validates using the "heavy-first" strategy:
+ * configs MUST use the heaviest plate in the subset when their target allows it.
+ * This prevents solutions like [15, 15, 1, 1]=32 when [25, 5, 1, 1]=32 is possible.
  *
- * With only 6 plate types per unit system, we can brute-force all 64 subsets.
+ * Subsets that can't efficiently use their heaviest plate (i.e., too many plates
+ * needed for the remainder) are rejected.
  */
 function findOptimalPlateSubset(
   targetsPerSide: number[],
@@ -119,28 +117,29 @@ function findOptimalPlateSubset(
   const n = availablePlates.length
   if (n === 0) return []
 
-  // Reference: solve each target with ALL available plates
+  // Reference: solve each target with DP using ALL available plates
   const refResults = targetsPerSide.map(t => calculatePlatesOptimal(t, availablePlates))
 
   let bestSubset = availablePlates
   let bestSize = n
   let bestTotalPlates = refResults.reduce((sum, r) => sum + r.plates.length, 0)
+  let bestSubsetWeight = availablePlates.reduce((sum, p) => sum + p, 0)
 
-  // Try all non-empty subsets (2^6 = 64, very fast)
+  // Try all non-empty subsets (2^9 = 512 for KG, very fast)
   for (let mask = 1; mask < (1 << n); mask++) {
     const subset = availablePlates.filter((_, i) => mask & (1 << i))
 
-    // Skip subsets that aren't potentially better
     if (subset.length > bestSize) continue
 
     let valid = true
     let totalPlates = 0
+    const maxPlate = Math.max(...subset)
 
     for (let j = 0; j < targetsPerSide.length; j++) {
-      // Configs with no plates needed are always valid
       if (targetsPerSide[j] <= 0) continue
 
-      const result = calculatePlatesOptimal(targetsPerSide[j], subset)
+      // Solve with heavy-first strategy (enforces heaviest plate usage)
+      const result = calculatePlatesConsistent(targetsPerSide[j], subset)
 
       // Must achieve the same closest weight as with the full plate set
       if (Math.abs(result.totalWeight - refResults[j].totalWeight) > 0.01) {
@@ -148,10 +147,16 @@ function findOptimalPlateSubset(
         break
       }
 
-      // Reject if this subset causes too many plates for any single config
-      // (prevents degenerate solutions like 54x 0.5kg)
-      const maxAllowed = refResults[j].plates.length + 2
-      if (result.plates.length > maxAllowed) {
+      // If the closest weight can fit the heaviest plate, it MUST be used.
+      // This rejects subsets like {25, 15, 1} where 32/side becomes [15, 15, 1, 1]
+      // instead of using 25.
+      if (result.totalWeight >= maxPlate - 0.01 && !result.plates.includes(maxPlate)) {
+        valid = false
+        break
+      }
+
+      // Allow at most 1 extra plate per config vs the optimal
+      if (result.plates.length > refResults[j].plates.length + 1) {
         valid = false
         break
       }
@@ -160,12 +165,18 @@ function findOptimalPlateSubset(
     }
 
     if (valid) {
-      // Prefer: fewer plate types first, then fewer total plates
-      if (subset.length < bestSize ||
-          (subset.length === bestSize && totalPlates < bestTotalPlates)) {
+      const subsetWeight = subset.reduce((sum, p) => sum + p, 0)
+
+      const isBetter =
+        subset.length < bestSize ||
+        (subset.length === bestSize && totalPlates < bestTotalPlates) ||
+        (subset.length === bestSize && totalPlates === bestTotalPlates && subsetWeight > bestSubsetWeight)
+
+      if (isBetter) {
         bestSubset = subset
         bestSize = subset.length
         bestTotalPlates = totalPlates
+        bestSubsetWeight = subsetWeight
       }
     }
   }
@@ -174,30 +185,85 @@ function findOptimalPlateSubset(
 }
 
 /**
- * Uses dynamic programming (coin change) to find the minimum number of plates
- * to reach the closest achievable weight to the target.
+ * Solves a plate configuration using a "heavy-first" strategy:
+ * 1. Use as many of the heaviest plate as possible
+ * 2. Solve the remainder with DP
+ * 3. Accept if the result is within +1 plate of pure DP
+ * 4. Otherwise fall back to pure DP
  *
- * Superior to greedy because plate denominations (e.g. KG: 25, 20, 15, 5, 2.5, 0.5)
- * are NOT a canonical coin system. Greedy gives 35kg = [25, 5, 5] (3 plates),
- * DP gives [20, 15] (2 plates).
+ * This ensures heavy plates are used consistently across configs.
+ * E.g., for 32kg/side with {25, 5, 1}: gives [25, 5, 1, 1] instead of [15, 15, 1, 1].
  */
-function calculatePlatesOptimal(targetWeight: number, availablePlates: number[]) {
-  if (targetWeight <= 0) return { plates: [] as number[], totalWeight: 0 }
+function calculatePlatesConsistent(
+  targetWeight: number,
+  availablePlates: number[]
+): { plates: number[]; totalWeight: number } {
+  if (targetWeight <= 0) return { plates: [], totalWeight: 0 }
 
-  // Multiply by 2 to work with integers (smallest plate is 0.5kg)
+  // Pure DP solution (minimum plates, for comparison)
+  const dpResult = calculatePlatesOptimal(targetWeight, availablePlates)
+
+  const sorted = [...availablePlates].sort((a, b) => b - a)
+  const heaviest = sorted[0]
+
+  // If target can't fit the heaviest plate, just use DP
+  if (targetWeight < heaviest - 0.001) {
+    return dpResult
+  }
+
+  // Try using max heavy plates, then max-1, etc.
+  const numHeavy = Math.floor((targetWeight + 0.001) / heaviest)
+
+  for (let h = numHeavy; h >= 1; h--) {
+    const remainder = targetWeight - h * heaviest
+
+    const remResult =
+      remainder > 0.001
+        ? calculatePlatesOptimal(remainder, availablePlates)
+        : { plates: [] as number[], totalWeight: 0 }
+
+    const totalWeight = h * heaviest + remResult.totalWeight
+    const totalPlates = h + remResult.plates.length
+
+    // Check if closest weight matches the DP solution
+    if (Math.abs(totalWeight - dpResult.totalWeight) <= 0.01) {
+      // Accept if plate count is within +1 of pure DP
+      if (totalPlates <= dpResult.plates.length + 1) {
+        const plates = [
+          ...Array(h).fill(heaviest) as number[],
+          ...remResult.plates,
+        ].sort((a, b) => b - a)
+        return { plates, totalWeight }
+      }
+    }
+  }
+
+  // Fallback to pure DP (e.g., when forcing heavy plate costs too many plates)
+  return dpResult
+}
+
+/**
+ * Pure dynamic programming (coin change) to find the minimum number of plates
+ * to reach the closest achievable weight to the target.
+ */
+function calculatePlatesOptimal(
+  targetWeight: number,
+  availablePlates: number[]
+): { plates: number[]; totalWeight: number } {
+  if (targetWeight <= 0) return { plates: [], totalWeight: 0 }
+
   const factor = 2
   const target = Math.round(targetWeight * factor)
-  const coins = availablePlates.map(p => Math.round(p * factor))
+  const coins = availablePlates.map((p) => Math.round(p * factor))
   const maxCoin = Math.max(...coins)
 
-  // DP: dp[w] = minimum plates to achieve weight w
-  // Search up to target + maxCoin to find closest achievable weight
   const limit = target + maxCoin
   const dp = new Array(limit + 1).fill(Infinity)
   const usedCoin = new Array(limit + 1).fill(-1)
   dp[0] = 0
 
   for (let w = 1; w <= limit; w++) {
+    // Iterate coins from heaviest to lightest so ties prefer heavier plates
     for (let i = 0; i < coins.length; i++) {
       if (coins[i] <= w && dp[w - coins[i]] + 1 < dp[w]) {
         dp[w] = dp[w - coins[i]] + 1
@@ -218,7 +284,6 @@ function calculatePlatesOptimal(targetWeight: number, availablePlates: number[])
     }
 
     if (candidates.length > 0) {
-      // Among equally close, prefer under-target (safety), then fewer plates
       bestW = candidates.reduce((best, w) => {
         if (best === -1) return w
         if (dp[w] < dp[best]) return w
@@ -229,9 +294,8 @@ function calculatePlatesOptimal(targetWeight: number, availablePlates: number[])
     }
   }
 
-  if (bestW <= 0) return { plates: [] as number[], totalWeight: 0 }
+  if (bestW <= 0) return { plates: [], totalWeight: 0 }
 
-  // Backtrack to find which plates were used
   const resultPlates: number[] = []
   let w = bestW
   while (w > 0 && usedCoin[w] !== -1) {
@@ -250,9 +314,11 @@ function calculatePlatesOptimal(targetWeight: number, availablePlates: number[])
 /**
  * Computes the plate inventory needed across all configurations.
  * For each plate weight, returns the maximum count needed in any single
- * configuration (per side). This tells the user exactly what plates to grab.
+ * configuration (per side).
  */
-export function calculatePlateInventory(configurations: PlateConfiguration[]): PlateInventory {
+export function calculatePlateInventory(
+  configurations: PlateConfiguration[]
+): PlateInventory {
   const inventory: PlateInventory = {}
 
   for (const config of configurations) {

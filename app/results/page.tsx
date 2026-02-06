@@ -38,9 +38,16 @@ export default async function ResultsPage({
 
   const inventory = calculatePlateInventory(configurations);
 
+  // Build the edit URL that preserves all current search params
+  const editParams = new URLSearchParams()
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (typeof value === 'string') editParams.set(key, value)
+  }
+  const editUrl = `/?${editParams.toString()}`
+
   return (
     <main className="container mx-auto p-4 max-w-2xl">
-      <ResultsTitle />
+      <ResultsTitle editUrl={editUrl} />
       <PlateConfigurations
         configurations={configurations}
         inventory={inventory}
@@ -48,6 +55,7 @@ export default async function ResultsPage({
         sourceUnits={sourceUnits}
         PR={PR}
         isPercentages={isPercentages}
+        editUrl={editUrl}
       />
     </main>
   );

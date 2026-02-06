@@ -52,6 +52,7 @@ export const translations = {
     accurate: "Accurate",
     closestConfig: "Closest configuration",
     weight: "Weight",
+    editConfig: "Edit",
     calculateAnother: "Calculate another weight",
 
     // Plate inventory
@@ -110,6 +111,7 @@ export const translations = {
     accurate: "Preciso",
     closestConfig: "Configuración más cercana",
     weight: "Peso",
+    editConfig: "Editar",
     calculateAnother: "Calcular otro peso",
 
     // Plate inventory
@@ -168,6 +170,7 @@ export const translations = {
     accurate: "Preciso",
     closestConfig: "Configuração mais próxima",
     weight: "Peso",
+    editConfig: "Editar",
     calculateAnother: "Calcular outro peso",
 
     // Plate inventory
