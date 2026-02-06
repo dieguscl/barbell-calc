@@ -20,8 +20,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectSeparator,
 } from "@/components/ui/select"
-import { Plus, X } from "lucide-react"
+import { Plus, X, RotateCcw, Share2, Trash2 } from "lucide-react"
 import {
   Tabs,
   TabsList,
@@ -29,15 +30,17 @@ import {
 } from "@/components/ui/tabs"
 import { TypographyH3 } from "@/components/ui/typogrpahy-h3"
 import { useRouter } from "next/navigation"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, Check } from "lucide-react"
 
 const STORAGE_KEYS = {
   UNITS: 'barbell-calc-units',
-  BAR_WEIGHT: 'barbell-calc-bar-weight'
+  BAR_WEIGHT: 'barbell-calc-bar-weight',
+  MOVEMENT_PRS: 'barbell-calc-movement-prs'
 } as const
 
 const createFormSchema = (isPercentagesCalculation: boolean) => {
   return z.object({
+    movement: z.string().optional(),
     PR: isPercentagesCalculation
       ? z.string().min(1, { message: "El PR es requerido" })
       : z.string().optional(),
@@ -107,6 +110,9 @@ export function WeightCalculatorForm() {
 
   // 1.a. Introduce isLoading state
   const [isLoading, setIsLoading] = useState(true)
+  const [copied, setCopied] = useState(false)
+  const [savedMovements, setSavedMovements] = useState<string[]>([])
+  const [isAddingMovement, setIsAddingMovement] = useState(false)
 
   // 2. Create form schema based on initial state
   const formSchema = useMemo(() => createFormSchema(isPercentagesCalculation), [isPercentagesCalculation])
@@ -114,11 +120,20 @@ export function WeightCalculatorForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      movement: "",
       PR: "",
       barWeight: "",
       percentages: [""],
     },
   })
+
+  // Load saved movements on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedPRs = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOVEMENT_PRS) || '{}')
+      setSavedMovements(Object.keys(storedPRs).sort())
+    }
+  }, [])
 
   // 3. Populate form and update state based on URL parameters on the client side
   useEffect(() => {
@@ -150,6 +165,7 @@ export function WeightCalculatorForm() {
 
       // Set form values from URL or localStorage
       form.reset({
+        movement: searchParams.get('movement') || "",
         PR: searchParams.get('PR') || "",
         barWeight: searchParams.get('barWeight') || storedBarWeight || "",
         percentages: valueEntries.length > 0
@@ -178,6 +194,10 @@ export function WeightCalculatorForm() {
 
     const values = form.getValues();
 
+    if (values.movement) {
+      params.set('movement', values.movement);
+    }
+
     if (values.barWeight) {
       params.set('barWeight', values.barWeight);
     }
@@ -199,7 +219,7 @@ export function WeightCalculatorForm() {
   }
 
   useEffect(() => {
-    const subscription = form.watch(() => {
+    const subscription = form.watch((value, { name }) => {
       updateURL({})
     })
 
@@ -211,13 +231,41 @@ export function WeightCalculatorForm() {
     localStorage.setItem(STORAGE_KEYS.UNITS, units)
   }, [units])
 
-  // Add effect to save barWeight to localStorage
+  // Effect to load PR when movement changes via dropdown or manual input
   useEffect(() => {
-    const barWeight = form.getValues().barWeight
-    if (barWeight) {
-      localStorage.setItem(STORAGE_KEYS.BAR_WEIGHT, barWeight)
-    }
-  }, [form.watch('barWeight')])
+    const subscription = form.watch((value, { name }) => {
+      if (name === 'movement' && value.movement) {
+        const storedPRs = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOVEMENT_PRS) || '{}')
+        const savedPR = storedPRs[value.movement.toLowerCase()]
+        if (savedPR !== undefined) {
+          // Always update PR when movement changes to a saved one
+          form.setValue('PR', savedPR)
+        }
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [form])
+
+  // Add effect to save barWeight and PR to localStorage
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === 'barWeight' && value.barWeight) {
+        localStorage.setItem(STORAGE_KEYS.BAR_WEIGHT, value.barWeight)
+      }
+      
+      // Only save PR when both movement and PR are present and the change was to one of them
+      if ((name === 'movement' || name === 'PR') && value.movement && value.PR) {
+        const storedPRs = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOVEMENT_PRS) || '{}')
+        const movementLower = value.movement.toLowerCase()
+        if (storedPRs[movementLower] !== value.PR) {
+          storedPRs[movementLower] = value.PR
+          localStorage.setItem(STORAGE_KEYS.MOVEMENT_PRS, JSON.stringify(storedPRs))
+          setSavedMovements(Object.keys(storedPRs).sort())
+        }
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [form])
 
   function onSubmit(alternateUnit: boolean = false) {
     return (values: z.infer<ReturnType<typeof createFormSchema>>) => {
@@ -232,6 +280,10 @@ export function WeightCalculatorForm() {
       searchParams.set('barWeight', values.barWeight)
       searchParams.set('isPercentages', isPercentagesCalculation.toString())
       searchParams.set('sourceUnits', units) // Add source units for proper conversion
+
+      if (values.movement) {
+        searchParams.set('movement', values.movement)
+      }
 
       if (isPercentagesCalculation && values.PR) {
         searchParams.set('PR', values.PR)
@@ -249,13 +301,62 @@ export function WeightCalculatorForm() {
     setPercentageCount(prev => prev + 1)
     const currentPercentages = form.getValues().percentages
     form.setValue('percentages', [...currentPercentages, ""])
+    
+    // Focus on the new input
+    setTimeout(() => {
+      const inputs = document.querySelectorAll('input[name^="percentages."]');
+      (inputs[inputs.length - 1] as HTMLInputElement)?.focus();
+    }, 0);
   }
 
   const removePercentage = (index: number) => {
     const currentPercentages = form.getValues().percentages
     const newPercentages = currentPercentages.filter((_, i) => i !== index)
     form.setValue('percentages', newPercentages)
-    setPercentageCount(prev => prev - 1)
+    setPercentageCount(prev => Math.max(newPercentages.length, 1))
+  }
+
+  const resetForm = () => {
+    form.setValue('percentages', [""])
+    setPercentageCount(1)
+    updateURL({})
+  }
+
+  const shareURL = async () => {
+    const url = window.location.href
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(url)
+    } else {
+      // Fallback for non-secure contexts or unsupported clipboard API
+      const textArea = document.createElement("textarea")
+      textArea.value = url
+      textArea.style.position = "fixed"
+      textArea.style.left = "-9999px"
+      textArea.style.top = "0"
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      try {
+        document.execCommand('copy')
+      } catch (err) {
+        console.error('Fallback: Oops, unable to copy', err)
+      }
+      document.body.removeChild(textArea)
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const deleteMovement = (movementToDelete: string) => {
+    const storedPRs = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOVEMENT_PRS) || '{}')
+    delete storedPRs[movementToDelete.toLowerCase()]
+    localStorage.setItem(STORAGE_KEYS.MOVEMENT_PRS, JSON.stringify(storedPRs))
+    setSavedMovements(Object.keys(storedPRs).sort())
+    
+    if (form.getValues().movement.toLowerCase() === movementToDelete.toLowerCase()) {
+      form.setValue('movement', "")
+      form.setValue('PR', "")
+    }
   }
 
   return (
@@ -326,23 +427,107 @@ export function WeightCalculatorForm() {
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit(false))} className="space-y-8">
-              {isPercentagesCalculation && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="PR"
+                  name="movement"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        <TypographyH3>PR</TypographyH3>
+                        <TypographyH3>Movimiento</TypographyH3>
                       </FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. 320" {...field} />
-                      </FormControl>
+                      {isAddingMovement || savedMovements.length === 0 ? (
+                        <div className="flex gap-2">
+                          <FormControl>
+                            <Input 
+                              placeholder="e.g. Squat" 
+                              {...field} 
+                              autoFocus={isAddingMovement}
+                            />
+                          </FormControl>
+                          {savedMovements.length > 0 && (
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => setIsAddingMovement(false)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
+                        <Select 
+                          onValueChange={(value) => {
+                            if (value === "add_new") {
+                              setIsAddingMovement(true);
+                              form.setValue('movement', "");
+                              form.setValue('PR', "");
+                            } else {
+                              field.onChange(value);
+                            }
+                          }} 
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona un movimiento" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {savedMovements.map((m) => (
+                              <div key={m} className="flex items-center justify-between px-2 py-1 hover:bg-accent rounded-sm group">
+                                <SelectItem value={m} className="flex-1 hover:bg-transparent focus:bg-transparent">
+                                  {m.charAt(0).toUpperCase() + m.slice(1)}
+                                </SelectItem>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    deleteMovement(m);
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                            <SelectSeparator />
+                            <SelectItem value="add_new" className="text-primary font-medium">
+                              <div className="flex items-center gap-2">
+                                <Plus className="h-4 w-4" />
+                                Agregar nuevo
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              )}
+
+                {isPercentagesCalculation && (
+                  <FormField
+                    control={form.control}
+                    name="PR"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          <TypographyH3>PR</TypographyH3>
+                        </FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. 320" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
 
               <FormField
                 control={form.control}
@@ -352,7 +537,7 @@ export function WeightCalculatorForm() {
                     <FormLabel>
                       <TypographyH3>Peso de barra</TypographyH3>
                     </FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecciona el peso de la barra" />
@@ -372,38 +557,84 @@ export function WeightCalculatorForm() {
               />
 
               {/* Percentage inputs */}
-              {Array.from({ length: percentageCount }).map((_, index) => (
-                <FormField
-                  key={index}
-                  control={form.control}
-                  name={`percentages.${index}`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1">
-                          <FormLabel>{isPercentagesCalculation ? "Porcentaje" : "Peso"} {index + 1}</FormLabel>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <TypographyH3>{isPercentagesCalculation ? "Porcentajes" : "Pesos"}</TypographyH3>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={shareURL}
+                      className="flex items-center gap-2"
+                    >
+                      {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+                      {copied ? "Copiado" : "Compartir"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={resetForm}
+                      className="flex items-center gap-2 text-destructive hover:text-destructive"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Reiniciar
+                    </Button>
+                  </div>
+                </div>
+                {Array.from({ length: percentageCount }).map((_, index) => (
+                  <FormField
+                    key={index}
+                    control={form.control}
+                    name={`percentages.${index}`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">
                           <FormControl>
                             <Input
                               placeholder={isPercentagesCalculation ? "e.g. 85" : "e.g. 100"}
                               {...field}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val.includes(',')) {
+                                  const parts = val.split(',').map(p => p.trim()).filter(p => p !== "");
+                                  if (parts.length > 1) {
+                                    const currentPercentages = [...form.getValues().percentages];
+                                    currentPercentages.splice(index, 1, ...parts);
+                                    form.setValue('percentages', currentPercentages);
+                                    setPercentageCount(currentPercentages.length);
+                                    
+                                    // Focus on the last added one from this split
+                                    setTimeout(() => {
+                                      const inputs = document.querySelectorAll('input[name^="percentages."]');
+                                      (inputs[index + parts.length - 1] as HTMLInputElement)?.focus();
+                                    }, 0);
+                                    return;
+                                  }
+                                }
+                                field.onChange(e);
+                              }}
                             />
                           </FormControl>
-                          <FormMessage />
+                            <FormMessage />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            disabled={percentageCount === 1}
+                            onClick={() => removePercentage(index)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="self-end"
-                          onClick={() => removePercentage(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-              ))}
+                      </FormItem>
+                    )}
+                  />
+                ))}
+              </div>
 
               {/* Add this error message section */}
               {form.formState.errors.percentages && (
