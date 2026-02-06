@@ -31,6 +31,7 @@ import {
 import { TypographyH3 } from "@/components/ui/typogrpahy-h3"
 import { useRouter } from "next/navigation"
 import { AlertCircle, Check } from "lucide-react"
+import { useLocale } from "@/lib/locale-context"
 
 const STORAGE_KEYS = {
   UNITS: 'barbell-calc-units',
@@ -38,24 +39,23 @@ const STORAGE_KEYS = {
   MOVEMENT_PRS: 'barbell-calc-movement-prs'
 } as const
 
-const createFormSchema = (isPercentagesCalculation: boolean) => {
+const createFormSchema = (isPercentagesCalculation: boolean, t: (key: any) => string) => {
   return z.object({
     movement: z.string().optional(),
     PR: isPercentagesCalculation
-      ? z.string().min(1, { message: "El PR es requerido" })
+      ? z.string().min(1, { message: t("prRequired") })
       : z.string().optional(),
     barWeight: z.string().refine((val) => {
-      // Check if the value exists in either KG or LB options
       const validValues = [
         ...BAR_OPTIONS.KG.map(opt => opt.value),
         ...BAR_OPTIONS.LB.map(opt => opt.value)
       ];
       return validValues.includes(val);
-    }, { message: "Por favor selecciona el peso de la barra" }),
+    }, { message: t("selectBarWeight") }),
     percentages: z.array(z.string())
       .refine(
         (arr) => arr.some(val => val.trim() !== ""),
-        { message: `Debes ingresar al menos un ${isPercentagesCalculation ? "porcentaje" : "peso"}` }
+        { message: isPercentagesCalculation ? t("atLeastOnePercentage") : t("atLeastOneWeight") }
       ),
   })
 }
@@ -71,35 +71,12 @@ const BAR_OPTIONS = {
   ],
 }
 
-function FormErrorMessage({ errors }: { errors: Record<string, any> }) {
-  if (Object.keys(errors).length === 0) return null;
-
-  return (
-    <div className="bg-destructive/15 text-destructive px-4 py-2 rounded-md mb-4 flex items-start space-x-2">
-      <AlertCircle className="h-5 w-5 mt-0.5" />
-      <div className="space-y-1">
-        <p className="font-medium">Por favor corrige los siguientes errores:</p>
-        <ul className="list-disc list-inside text-sm space-y-1">
-          {errors.PR?.message && <li>{errors.PR.message}</li>}
-          {errors.barWeight?.message && <li>{errors.barWeight.message}</li>}
-          {errors.percentages?.message && <li>{errors.percentages.message}</li>}
-          {process.env.NODE_ENV === 'development' && (
-            <li className="text-xs opacity-50">
-              {JSON.stringify(errors, null, 2)}
-            </li>
-          )}
-        </ul>
-      </div>
-    </div>
-  )
-}
-
 export function WeightCalculatorForm() {
   const router = useRouter()
+  const { t } = useLocale()
 
   // 1. Initialize state with default values
   const [units, setUnits] = useState<"KG" | "LB">(() => {
-    // Try to get from localStorage, fallback to "KG"
     if (typeof window !== 'undefined') {
       return (localStorage.getItem(STORAGE_KEYS.UNITS) as "KG" | "LB") || "KG"
     }
@@ -108,14 +85,13 @@ export function WeightCalculatorForm() {
   const [isPercentagesCalculation, setIsPercentagesCalculation] = useState(true)
   const [percentageCount, setPercentageCount] = useState(1)
 
-  // 1.a. Introduce isLoading state
   const [isLoading, setIsLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [savedMovements, setSavedMovements] = useState<string[]>([])
   const [isAddingMovement, setIsAddingMovement] = useState(false)
 
   // 2. Create form schema based on initial state
-  const formSchema = useMemo(() => createFormSchema(isPercentagesCalculation), [isPercentagesCalculation])
+  const formSchema = useMemo(() => createFormSchema(isPercentagesCalculation, t), [isPercentagesCalculation, t])
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -140,7 +116,6 @@ export function WeightCalculatorForm() {
     if (typeof window !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search)
 
-      // Set units from URL or localStorage
       const urlUnits = searchParams.get('units') as "KG" | "LB"
       const storedUnits = localStorage.getItem(STORAGE_KEYS.UNITS) as "KG" | "LB"
       if (urlUnits) {
@@ -149,21 +124,17 @@ export function WeightCalculatorForm() {
         setUnits(storedUnits)
       }
 
-      // Set calculation type from URL
       const urlIsPercentages = searchParams.get('isPercentages')
       if (urlIsPercentages !== null) {
         setIsPercentagesCalculation(urlIsPercentages !== 'false')
       }
 
-      // Get stored barWeight
       const storedBarWeight = localStorage.getItem(STORAGE_KEYS.BAR_WEIGHT)
 
-      // Get percentages/weights from URL
       const valueEntries = Array.from(searchParams.entries())
         .filter(([key]) => key.startsWith('value'))
         .sort((a, b) => a[0].localeCompare(b[0]))
 
-      // Set form values from URL or localStorage
       form.reset({
         movement: searchParams.get('movement') || "",
         PR: searchParams.get('PR') || "",
@@ -173,16 +144,12 @@ export function WeightCalculatorForm() {
           : [""],
       })
 
-      // Set percentage count
       setPercentageCount(Math.max(valueEntries.length || 1, 1))
-
-      // 3.a. Update isLoading to false after initialization
       setIsLoading(false)
     }
   }, [form])
 
   const updateURL = (updates: Partial<{ units: "KG" | "LB"; isPercentagesCalculation: boolean }>) => {
-    // Don't update URL if we're in SSR or if window is not available
     if (typeof window === 'undefined') return;
 
     const params = new URLSearchParams();
@@ -214,7 +181,6 @@ export function WeightCalculatorForm() {
       });
     }
 
-    // Update URL without navigation
     window.history.replaceState({}, '', `?${params.toString()}`);
   }
 
@@ -226,7 +192,6 @@ export function WeightCalculatorForm() {
     return () => subscription.unsubscribe()
   }, [form, units, isPercentagesCalculation])
 
-  // Add effect to save units to localStorage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.UNITS, units)
   }, [units])
@@ -238,7 +203,6 @@ export function WeightCalculatorForm() {
         const storedPRs = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOVEMENT_PRS) || '{}')
         const savedPR = storedPRs[value.movement.toLowerCase()]
         if (savedPR !== undefined) {
-          // Always update PR when movement changes to a saved one
           form.setValue('PR', savedPR)
         }
       }
@@ -253,7 +217,6 @@ export function WeightCalculatorForm() {
         localStorage.setItem(STORAGE_KEYS.BAR_WEIGHT, value.barWeight)
       }
       
-      // Only save PR when both movement and PR are present and the change was to one of them
       if ((name === 'movement' || name === 'PR') && value.movement && value.PR) {
         const storedPRs = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOVEMENT_PRS) || '{}')
         const movementLower = value.movement.toLowerCase()
@@ -273,13 +236,13 @@ export function WeightCalculatorForm() {
       const targetUnits = alternateUnit ? (units === "KG" ? "LB" : "KG") : units
 
       const numericValues = values.percentages
-        .filter(val => val !== "") // Filter out empty values
+        .filter(val => val !== "")
         .map(val => parseFloat(val))
 
       searchParams.set('units', targetUnits)
       searchParams.set('barWeight', values.barWeight)
       searchParams.set('isPercentages', isPercentagesCalculation.toString())
-      searchParams.set('sourceUnits', units) // Add source units for proper conversion
+      searchParams.set('sourceUnits', units)
 
       if (values.movement) {
         searchParams.set('movement', values.movement)
@@ -302,7 +265,6 @@ export function WeightCalculatorForm() {
     const currentPercentages = form.getValues().percentages
     form.setValue('percentages', [...currentPercentages, ""])
     
-    // Focus on the new input
     setTimeout(() => {
       const inputs = document.querySelectorAll('input[name^="percentages."]');
       (inputs[inputs.length - 1] as HTMLInputElement)?.focus();
@@ -327,7 +289,6 @@ export function WeightCalculatorForm() {
     if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(url)
     } else {
-      // Fallback for non-secure contexts or unsupported clipboard API
       const textArea = document.createElement("textarea")
       textArea.value = url
       textArea.style.position = "fixed"
@@ -353,7 +314,7 @@ export function WeightCalculatorForm() {
     localStorage.setItem(STORAGE_KEYS.MOVEMENT_PRS, JSON.stringify(storedPRs))
     setSavedMovements(Object.keys(storedPRs).sort())
     
-    if (form.getValues().movement.toLowerCase() === movementToDelete.toLowerCase()) {
+    if (form.getValues().movement?.toLowerCase() === movementToDelete.toLowerCase()) {
       form.setValue('movement', "")
       form.setValue('PR', "")
     }
@@ -361,9 +322,7 @@ export function WeightCalculatorForm() {
 
   return (
     <div className="w-full max-w-md mx-auto">
-      {/* 4. Conditional Rendering Based on isLoading */}
       {isLoading ? (
-        // 4.a. Loading Screen
         <div className="flex items-center justify-center h-64">
           <svg
             className="animate-spin h-10 w-10 text-blue-500"
@@ -388,10 +347,9 @@ export function WeightCalculatorForm() {
           </svg>
         </div>
       ) : (
-        // 4.b. Main Form UI
         <>
           <Tabs
-            defaultValue={units} // Ensure consistent defaultValue
+            defaultValue={units}
             onValueChange={(value) => {
               setUnits(value as "KG" | "LB");
               updateURL({ units: value as "KG" | "LB" });
@@ -408,7 +366,7 @@ export function WeightCalculatorForm() {
           </Tabs>
 
           <Tabs
-            defaultValue={isPercentagesCalculation ? "percentages" : "weights"} // Ensure consistent defaultValue
+            defaultValue={isPercentagesCalculation ? "percentages" : "weights"}
             onValueChange={(value) => {
               const isPercentages = value === "percentages";
               setIsPercentagesCalculation(isPercentages);
@@ -417,10 +375,10 @@ export function WeightCalculatorForm() {
           >
             <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="percentages" aria-selected={isPercentagesCalculation} data-state={isPercentagesCalculation ? "active" : "inactive"}>
-                Porcentajes
+                {t("percentagesTab")}
               </TabsTrigger>
               <TabsTrigger value="weights" aria-selected={!isPercentagesCalculation} data-state={!isPercentagesCalculation ? "active" : "inactive"}>
-                Pesos Manuales
+                {t("manualWeightsTab")}
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -434,13 +392,13 @@ export function WeightCalculatorForm() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        <TypographyH3>Movimiento</TypographyH3>
+                        <TypographyH3>{t("movement")}</TypographyH3>
                       </FormLabel>
                       {isAddingMovement || savedMovements.length === 0 ? (
                         <div className="flex gap-2">
                           <FormControl>
                             <Input 
-                              placeholder="e.g. Squat" 
+                              placeholder={t("movementPlaceholder")}
                               {...field} 
                               autoFocus={isAddingMovement}
                             />
@@ -471,7 +429,7 @@ export function WeightCalculatorForm() {
                         >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Selecciona un movimiento" />
+                              <SelectValue placeholder={t("selectMovement")} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -499,7 +457,7 @@ export function WeightCalculatorForm() {
                             <SelectItem value="add_new" className="text-primary font-medium">
                               <div className="flex items-center gap-2">
                                 <Plus className="h-4 w-4" />
-                                Agregar nuevo
+                                {t("addNew")}
                               </div>
                             </SelectItem>
                           </SelectContent>
@@ -517,10 +475,10 @@ export function WeightCalculatorForm() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          <TypographyH3>PR</TypographyH3>
+                          <TypographyH3>{t("pr")}</TypographyH3>
                         </FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. 320" {...field} />
+                          <Input placeholder={t("prPlaceholder")} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -535,12 +493,12 @@ export function WeightCalculatorForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      <TypographyH3>Peso de barra</TypographyH3>
+                      <TypographyH3>{t("barWeight")}</TypographyH3>
                     </FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecciona el peso de la barra" />
+                          <SelectValue placeholder={t("barWeightPlaceholder")} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -559,7 +517,7 @@ export function WeightCalculatorForm() {
               {/* Percentage inputs */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <TypographyH3>{isPercentagesCalculation ? "Porcentajes" : "Pesos"}</TypographyH3>
+                  <TypographyH3>{isPercentagesCalculation ? t("percentages") : t("weights")}</TypographyH3>
                   <div className="flex gap-2">
                     <Button
                       type="button"
@@ -569,7 +527,7 @@ export function WeightCalculatorForm() {
                       className="flex items-center gap-2"
                     >
                       {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
-                      {copied ? "Copiado" : "Compartir"}
+                      {copied ? t("copied") : t("share")}
                     </Button>
                     <Button
                       type="button"
@@ -579,7 +537,7 @@ export function WeightCalculatorForm() {
                       className="flex items-center gap-2 text-destructive hover:text-destructive"
                     >
                       <RotateCcw className="h-4 w-4" />
-                      Reiniciar
+                      {t("reset")}
                     </Button>
                   </div>
                 </div>
@@ -594,7 +552,7 @@ export function WeightCalculatorForm() {
                           <div className="flex-1">
                           <FormControl>
                             <Input
-                              placeholder={isPercentagesCalculation ? "e.g. 85" : "e.g. 100"}
+                              placeholder={isPercentagesCalculation ? t("percentagePlaceholder") : t("weightPlaceholder")}
                               {...field}
                               onChange={(e) => {
                                 const val = e.target.value;
@@ -606,7 +564,6 @@ export function WeightCalculatorForm() {
                                     form.setValue('percentages', currentPercentages);
                                     setPercentageCount(currentPercentages.length);
                                     
-                                    // Focus on the last added one from this split
                                     setTimeout(() => {
                                       const inputs = document.querySelectorAll('input[name^="percentages."]');
                                       (inputs[index + parts.length - 1] as HTMLInputElement)?.focus();
@@ -636,14 +593,14 @@ export function WeightCalculatorForm() {
                 ))}
               </div>
 
-              {/* Add this error message section */}
+              {/* Error message section */}
               {form.formState.errors.percentages && (
                 <div className="text-destructive text-sm flex items-center gap-2">
                   <AlertCircle className="h-4 w-4" />
                   <span>
                     {isPercentagesCalculation
-                      ? "Debes ingresar al menos un porcentaje para realizar el cálculo"
-                      : "Debes ingresar al menos un peso para realizar el cálculo"
+                      ? t("atLeastOnePercentageCalc")
+                      : t("atLeastOneWeightCalc")
                     }
                   </span>
                 </div>
@@ -656,7 +613,7 @@ export function WeightCalculatorForm() {
                 className="w-full"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Agregar {isPercentagesCalculation ? "porcentaje" : "peso"}
+                {isPercentagesCalculation ? t("addPercentage") : t("addWeight")}
               </Button>
 
               <div className="space-y-4">
@@ -664,7 +621,7 @@ export function WeightCalculatorForm() {
                   type="submit"
                   className="w-full"
                 >
-                  Calcular
+                  {t("calculate")}
                 </Button>
                 <Button
                   type="button"
@@ -677,7 +634,7 @@ export function WeightCalculatorForm() {
                     }
                   }}
                 >
-                  Calcular en {units === "KG" ? "LB" : "KG"}
+                  {t("calculateIn")} {units === "KG" ? "LB" : "KG"}
                 </Button>
               </div>
             </form>
@@ -686,4 +643,4 @@ export function WeightCalculatorForm() {
       )}
     </div>
   )
-} 
+}

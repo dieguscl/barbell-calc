@@ -1,5 +1,8 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { useLocale } from "@/lib/locale-context"
 
 interface PlateConfiguration {
   percentage?: number
@@ -18,6 +21,8 @@ interface Props {
 }
 
 export function PlateConfigurations({ configurations, units, sourceUnits, PR, isPercentages }: Props) {
+  const { t } = useLocale()
+
   return (
     <div className="space-y-8">
       {PR && (
@@ -30,23 +35,23 @@ export function PlateConfigurations({ configurations, units, sourceUnits, PR, is
         <div key={index} className="border rounded-lg p-4 space-y-4">
           <h3 className="text-lg font-semibold">
             {isPercentages 
-              ? `Levantamiento al ${config.percentage}%`
-              : `Levantamiento #${index + 1}`}
+              ? `${t("liftAt")} ${config.percentage}%`
+              : `${t("lift")} #${index + 1}`}
           </h3>
           
           <div className="text-sm text-muted-foreground">
             {config.accurateWeight !== config.roundedWeight ? (
               <p>
-                Peso redondeado: {config.roundedWeight}{units} | 
-                Preciso: {config.accurateWeight.toFixed(1)}{units}
+                {t("roundedWeight")}: {config.roundedWeight}{units} | 
+                {t("accurate")}: {config.accurateWeight.toFixed(1)}{units}
                 {config.closestWeight !== config.roundedWeight && 
-                  ` | Configuración más cercana: ${config.closestWeight}${units}`}
+                  ` | ${t("closestConfig")}: ${config.closestWeight}${units}`}
               </p>
             ) : (
               <p>
-                Peso: {config.roundedWeight}{units}
+                {t("weight")}: {config.roundedWeight}{units}
                 {config.closestWeight !== config.roundedWeight && 
-                  ` | Configuración más cercana: ${config.closestWeight}${units}`}
+                  ` | ${t("closestConfig")}: ${config.closestWeight}${units}`}
               </p>
             )}
           </div>
@@ -65,9 +70,9 @@ export function PlateConfigurations({ configurations, units, sourceUnits, PR, is
 
       <Button asChild className="w-full">
         <Link href="/">
-          Calcular otro peso
+          {t("calculateAnother")}
         </Link>
       </Button>
     </div>
   )
-} 
+}

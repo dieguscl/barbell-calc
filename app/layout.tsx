@@ -3,6 +3,8 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ModeToggle } from "@/components/mode-toggle";
+import { LocaleProvider } from "@/lib/locale-context";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -34,9 +36,14 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <ModeToggle className="fixed top-4 right-4" />
+          <LocaleProvider>
+            <div className="fixed top-4 right-4 flex gap-2">
+              <LocaleSwitcher />
+              <ModeToggle />
+            </div>
 
-          {children}
+            {children}
+          </LocaleProvider>
         </ThemeProvider>
       </body>
     </html>

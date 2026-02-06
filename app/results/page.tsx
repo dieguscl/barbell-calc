@@ -1,6 +1,6 @@
-import { TypographyH1 } from "@/components/ui/typography-h1";
 import { calculatePlateConfigurations } from "@/lib/calculations";
 import { PlateConfigurations } from "./components/plate-configurations";
+import { ResultsTitle } from "./components/results-title";
 import { SearchParams } from "next/dist/server/request/search-params";
 
 interface PageProps {
@@ -38,7 +38,7 @@ export default async function ResultsPage({
 
   return (
     <main className="container mx-auto p-4">
-      <TypographyH1>Resultados</TypographyH1>
+      <ResultsTitle />
       <PlateConfigurations
         configurations={configurations}
         units={units}
