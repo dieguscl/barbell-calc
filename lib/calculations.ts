@@ -21,7 +21,7 @@ export interface PlateInventory {
 }
 
 const AVAILABLE_PLATES = {
-  KG: [25, 20, 15, 10, 7.5, 5, 2.5, 1, 0.5],
+  KG: [25, 20, 15, 10, 7.5, 5, 1.5, 1, 0.5],
   LB: [45, 35, 25, 10, 5, 2.5],
 }
 
