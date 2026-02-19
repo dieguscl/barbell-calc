@@ -17,12 +17,15 @@ interface PlateConfiguration {
 
 interface Props {
   configurations: PlateConfiguration[]
-  inventory: PlateInventory
+  baseInventory: PlateInventory
+  disabledPlates: number[]
+  onTogglePlate: (weight: number) => void
   units: "KG" | "LB"
   sourceUnits: "KG" | "LB"
   PR?: number
   isPercentages: boolean
-  editUrl: string
+  editUrl?: string
+  onEdit?: () => void
 }
 
 function PlateSummary({ plates, units }: { plates: number[]; units: "KG" | "LB" }) {
@@ -51,7 +54,7 @@ function PlateSummary({ plates, units }: { plates: number[]; units: "KG" | "LB" 
   )
 }
 
-export function PlateConfigurations({ configurations, inventory, units, sourceUnits, PR, isPercentages, editUrl }: Props) {
+export function PlateConfigurations({ configurations, baseInventory, disabledPlates, onTogglePlate, units, sourceUnits, PR, isPercentages, editUrl, onEdit }: Props) {
   const { t } = useLocale()
 
   return (
@@ -62,7 +65,12 @@ export function PlateConfigurations({ configurations, inventory, units, sourceUn
         </div>
       )}
 
-      <PlateInventoryDisplay inventory={inventory} units={units} />
+      <PlateInventoryDisplay
+        inventory={baseInventory}
+        disabledPlates={disabledPlates}
+        onTogglePlate={onTogglePlate}
+        units={units}
+      />
 
       {configurations.map((config, index) => (
         <div key={index} className="border rounded-lg p-5 space-y-3">
@@ -97,11 +105,17 @@ export function PlateConfigurations({ configurations, inventory, units, sourceUn
         </div>
       ))}
 
-      <Button asChild className="w-full">
-        <Link href={editUrl}>
+      {onEdit ? (
+        <Button className="w-full" onClick={onEdit}>
           {t("editConfig")}
-        </Link>
-      </Button>
+        </Button>
+      ) : editUrl ? (
+        <Button asChild className="w-full">
+          <Link href={editUrl}>
+            {t("editConfig")}
+          </Link>
+        </Button>
+      ) : null}
     </div>
   )
 }

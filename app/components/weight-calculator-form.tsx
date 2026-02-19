@@ -29,7 +29,8 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { TypographyH3 } from "@/components/ui/typogrpahy-h3"
-import { useRouter } from "next/navigation"
+import { calculatePlateConfigurations, calculatePlateInventory } from "@/lib/calculations"
+import type { PlateConfiguration, PlateInventory } from "@/lib/calculations"
 import { AlertCircle, Check } from "lucide-react"
 import { useLocale } from "@/lib/locale-context"
 
@@ -71,8 +72,31 @@ const BAR_OPTIONS = {
   ],
 }
 
-export function WeightCalculatorForm() {
-  const router = useRouter()
+export const getEquivalentBarWeight = (currentWeight: string, toUnit: "KG" | "LB") => {
+  if (toUnit === "LB") {
+    if (currentWeight === "20") return "45"
+    if (currentWeight === "15") return "35"
+  } else {
+    if (currentWeight === "45") return "20"
+    if (currentWeight === "35") return "15"
+  }
+  return currentWeight
+}
+
+export interface CalculationResults {
+  configurations: PlateConfiguration[]
+  baseInventory: PlateInventory
+  units: "KG" | "LB"
+  sourceUnits: "KG" | "LB"
+  PR?: number
+  isPercentages: boolean
+}
+
+interface WeightCalculatorFormProps {
+  onCalculate: (results: CalculationResults) => void
+}
+
+export function WeightCalculatorForm({ onCalculate }: WeightCalculatorFormProps) {
   const { t } = useLocale()
 
   // 1. Initialize state with default values
@@ -118,6 +142,8 @@ export function WeightCalculatorForm() {
 
       const urlUnits = searchParams.get('units') as "KG" | "LB"
       const storedUnits = localStorage.getItem(STORAGE_KEYS.UNITS) as "KG" | "LB"
+      const activeUnits = urlUnits || storedUnits || "KG"
+
       if (urlUnits) {
         setUnits(urlUnits)
       } else if (storedUnits) {
@@ -130,6 +156,8 @@ export function WeightCalculatorForm() {
       }
 
       const storedBarWeight = localStorage.getItem(STORAGE_KEYS.BAR_WEIGHT)
+      const initialBarWeight = searchParams.get('barWeight') || storedBarWeight || ""
+      const adjustedBarWeight = initialBarWeight ? getEquivalentBarWeight(initialBarWeight, activeUnits) : ""
 
       const valueEntries = Array.from(searchParams.entries())
         .filter(([key]) => key.startsWith('value'))
@@ -138,7 +166,7 @@ export function WeightCalculatorForm() {
       form.reset({
         movement: searchParams.get('movement') || "",
         PR: searchParams.get('PR') || "",
-        barWeight: searchParams.get('barWeight') || storedBarWeight || "",
+        barWeight: adjustedBarWeight,
         percentages: valueEntries.length > 0
           ? valueEntries.map(([_, value]) => value)
           : [""],
@@ -194,21 +222,61 @@ export function WeightCalculatorForm() {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.UNITS, units)
-  }, [units])
+
+    // Translate barWeight to the new unit
+    const currentBarWeight = form.getValues('barWeight')
+    if (currentBarWeight) {
+      const equivalent = getEquivalentBarWeight(currentBarWeight, units)
+      if (equivalent !== currentBarWeight) {
+        form.setValue('barWeight', equivalent)
+        localStorage.setItem(STORAGE_KEYS.BAR_WEIGHT, equivalent)
+      }
+    }
+
+    // Update the unit for the active movement as well
+    const values = form.getValues()
+    if (values.movement && values.PR) {
+      const storedPRs = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOVEMENT_PRS) || '{}')
+      const movementLower = values.movement.toLowerCase()
+      const currentData = storedPRs[movementLower]
+
+      let shouldUpdate = false
+      if (typeof currentData === 'object' && currentData !== null) {
+        if (currentData.units !== units || currentData.pr !== values.PR) shouldUpdate = true
+      } else if (currentData !== undefined) {
+        shouldUpdate = true
+      }
+
+      if (shouldUpdate) {
+        storedPRs[movementLower] = { pr: values.PR, units }
+        localStorage.setItem(STORAGE_KEYS.MOVEMENT_PRS, JSON.stringify(storedPRs))
+        setSavedMovements(Object.keys(storedPRs).sort())
+      }
+    }
+  }, [units, form])
 
   // Effect to load PR when movement changes via dropdown or manual input
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
       if (name === 'movement' && value.movement) {
         const storedPRs = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOVEMENT_PRS) || '{}')
-        const savedPR = storedPRs[value.movement.toLowerCase()]
-        if (savedPR !== undefined) {
-          form.setValue('PR', savedPR)
+        const savedData = storedPRs[value.movement.toLowerCase()]
+        if (savedData !== undefined) {
+          if (typeof savedData === 'object' && savedData !== null) {
+            form.setValue('PR', savedData.pr)
+            if (savedData.units && savedData.units !== units) {
+              setUnits(savedData.units as "KG" | "LB")
+              updateURL({ units: savedData.units as "KG" | "LB" })
+            }
+          } else {
+            // Backward compatibility for old string format
+            form.setValue('PR', savedData)
+          }
         }
       }
     })
     return () => subscription.unsubscribe()
-  }, [form])
+  }, [form, units])
 
   // Add effect to save barWeight and PR to localStorage
   useEffect(() => {
@@ -216,19 +284,29 @@ export function WeightCalculatorForm() {
       if (name === 'barWeight' && value.barWeight) {
         localStorage.setItem(STORAGE_KEYS.BAR_WEIGHT, value.barWeight)
       }
-      
+
       if ((name === 'movement' || name === 'PR') && value.movement && value.PR) {
         const storedPRs = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOVEMENT_PRS) || '{}')
         const movementLower = value.movement.toLowerCase()
-        if (storedPRs[movementLower] !== value.PR) {
-          storedPRs[movementLower] = value.PR
+        const currentData = storedPRs[movementLower]
+
+        let shouldUpdate = false
+        if (typeof currentData === 'object' && currentData !== null) {
+          if (currentData.pr !== value.PR || currentData.units !== units) shouldUpdate = true
+        } else {
+          // Backward compatibility or new entry
+          if (currentData !== value.PR) shouldUpdate = true
+        }
+
+        if (shouldUpdate) {
+          storedPRs[movementLower] = { pr: value.PR, units }
           localStorage.setItem(STORAGE_KEYS.MOVEMENT_PRS, JSON.stringify(storedPRs))
           setSavedMovements(Object.keys(storedPRs).sort())
         }
       }
     })
     return () => subscription.unsubscribe()
-  }, [form])
+  }, [form, units])
 
   function onSubmit(alternateUnit: boolean = false) {
     return (values: z.infer<ReturnType<typeof createFormSchema>>) => {
@@ -256,7 +334,31 @@ export function WeightCalculatorForm() {
         searchParams.set(`value${index}`, value.toString())
       })
 
-      router.push(`/results?${searchParams.toString()}`)
+      // Update URL for sharing without navigating
+      window.history.replaceState({}, '', `?${searchParams.toString()}`)
+
+      // Compute results client-side
+      const PR = isPercentagesCalculation && values.PR ? parseFloat(values.PR) : undefined
+
+      const baseConfigs = calculatePlateConfigurations({
+        PR,
+        barWeight: parseFloat(values.barWeight),
+        values: numericValues,
+        units: targetUnits,
+        sourceUnits: units,
+        isPercentages: isPercentagesCalculation,
+        disabledPlates: [],
+      })
+      const baseInventory = calculatePlateInventory(baseConfigs)
+
+      onCalculate({
+        configurations: baseConfigs,
+        baseInventory,
+        units: targetUnits,
+        sourceUnits: units,
+        PR,
+        isPercentages: isPercentagesCalculation,
+      })
     }
   }
 
@@ -264,7 +366,7 @@ export function WeightCalculatorForm() {
     setPercentageCount(prev => prev + 1)
     const currentPercentages = form.getValues().percentages
     form.setValue('percentages', [...currentPercentages, ""])
-    
+
     setTimeout(() => {
       const inputs = document.querySelectorAll('input[name^="percentages."]');
       (inputs[inputs.length - 1] as HTMLInputElement)?.focus();
@@ -313,7 +415,7 @@ export function WeightCalculatorForm() {
     delete storedPRs[movementToDelete.toLowerCase()]
     localStorage.setItem(STORAGE_KEYS.MOVEMENT_PRS, JSON.stringify(storedPRs))
     setSavedMovements(Object.keys(storedPRs).sort())
-    
+
     if (form.getValues().movement?.toLowerCase() === movementToDelete.toLowerCase()) {
       form.setValue('movement', "")
       form.setValue('PR', "")
@@ -321,7 +423,7 @@ export function WeightCalculatorForm() {
   }
 
   return (
-    <div className="w-full max-w-md mx-auto">
+    <div className="w-full max-w-md md:max-w-lg lg:max-w-xl mx-auto">
       {isLoading ? (
         <div className="flex items-center justify-center h-64">
           <svg
@@ -398,16 +500,16 @@ export function WeightCalculatorForm() {
                         {isAddingMovement || savedMovements.length === 0 ? (
                           <div className="flex gap-2">
                             <FormControl>
-                              <Input 
+                              <Input
                                 placeholder={t("movementPlaceholder")}
-                                {...field} 
+                                {...field}
                                 autoFocus={isAddingMovement}
                               />
                             </FormControl>
                             {savedMovements.length > 0 && (
-                              <Button 
-                                type="button" 
-                                variant="ghost" 
+                              <Button
+                                type="button"
+                                variant="ghost"
                                 size="icon"
                                 onClick={() => setIsAddingMovement(false)}
                               >
@@ -416,7 +518,7 @@ export function WeightCalculatorForm() {
                             )}
                           </div>
                         ) : (
-                          <Select 
+                          <Select
                             onValueChange={(value) => {
                               if (value === "add_new") {
                                 setIsAddingMovement(true);
@@ -425,7 +527,7 @@ export function WeightCalculatorForm() {
                               } else {
                                 field.onChange(value);
                               }
-                            }} 
+                            }}
                             value={field.value}
                           >
                             <FormControl>
@@ -550,31 +652,31 @@ export function WeightCalculatorForm() {
                       <FormItem>
                         <div className="flex items-center gap-2">
                           <div className="flex-1">
-                          <FormControl>
-                            <Input
-                              placeholder={isPercentagesCalculation ? t("percentagePlaceholder") : t("weightPlaceholder")}
-                              {...field}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (val.includes(',')) {
-                                  const parts = val.split(',').map(p => p.trim()).filter(p => p !== "");
-                                  if (parts.length > 1) {
-                                    const currentPercentages = [...form.getValues().percentages];
-                                    currentPercentages.splice(index, 1, ...parts);
-                                    form.setValue('percentages', currentPercentages);
-                                    setPercentageCount(currentPercentages.length);
-                                    
-                                    setTimeout(() => {
-                                      const inputs = document.querySelectorAll('input[name^="percentages."]');
-                                      (inputs[index + parts.length - 1] as HTMLInputElement)?.focus();
-                                    }, 0);
-                                    return;
+                            <FormControl>
+                              <Input
+                                placeholder={isPercentagesCalculation ? t("percentagePlaceholder") : t("weightPlaceholder")}
+                                {...field}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val.includes(',')) {
+                                    const parts = val.split(',').map(p => p.trim()).filter(p => p !== "");
+                                    if (parts.length > 1) {
+                                      const currentPercentages = [...form.getValues().percentages];
+                                      currentPercentages.splice(index, 1, ...parts);
+                                      form.setValue('percentages', currentPercentages);
+                                      setPercentageCount(currentPercentages.length);
+
+                                      setTimeout(() => {
+                                        const inputs = document.querySelectorAll('input[name^="percentages."]');
+                                        (inputs[index + parts.length - 1] as HTMLInputElement)?.focus();
+                                      }, 0);
+                                      return;
+                                    }
                                   }
-                                }
-                                field.onChange(e);
-                              }}
-                            />
-                          </FormControl>
+                                  field.onChange(e);
+                                }}
+                              />
+                            </FormControl>
                             <FormMessage />
                           </div>
                           <Button

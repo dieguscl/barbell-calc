@@ -1,30 +1,33 @@
 "use client"
 
+import { useMemo } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+
 interface BarbellVisualProps {
   plates: number[]
   units: "KG" | "LB"
 }
 
-const PLATE_COLORS: Record<string, Record<number, { bg: string; text: string }>> = {
+const PLATE_COLORS: Record<string, Record<number, { bg: string; text: string; border?: string }>> = {
   KG: {
-    25:   { bg: "bg-red-600",    text: "text-white" },
-    20:   { bg: "bg-blue-600",   text: "text-white" },
-    15:   { bg: "bg-yellow-400", text: "text-black" },
-    10:   { bg: "bg-green-600",  text: "text-white" },
-    7.5:  { bg: "bg-pink-500",   text: "text-white" },
-    5:    { bg: "bg-white border border-gray-300", text: "text-black" },
-    2.5:  { bg: "bg-red-400",    text: "text-white" },
-    1.25: { bg: "bg-yellow-300", text: "text-black" },
-    1:    { bg: "bg-zinc-600",   text: "text-white" },
-    0.5:  { bg: "bg-green-500",  text: "text-white" },
+    25: { bg: "bg-gradient-to-br from-red-500 to-red-600 shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),_0_2px_4px_rgba(0,0,0,0.5)]", text: "text-white", border: "border border-red-400/50" },
+    20: { bg: "bg-gradient-to-br from-blue-500 to-blue-600 shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),_0_2px_4px_rgba(0,0,0,0.5)]", text: "text-white", border: "border border-blue-400/50" },
+    15: { bg: "bg-gradient-to-br from-yellow-400 to-yellow-500 shadow-[inset_0_2px_4px_rgba(255,255,255,0.4),_0_2px_4px_rgba(0,0,0,0.4)]", text: "text-yellow-950", border: "border border-yellow-300/50" },
+    10: { bg: "bg-gradient-to-br from-green-500 to-green-600 shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),_0_2px_4px_rgba(0,0,0,0.5)]", text: "text-white", border: "border border-green-400/50" },
+    7.5: { bg: "bg-gradient-to-br from-pink-500 to-pink-600 shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),_0_2px_4px_rgba(0,0,0,0.5)]", text: "text-white", border: "border border-pink-400/50" },
+    5: { bg: "bg-gradient-to-br from-gray-50 to-gray-200 shadow-[inset_0_2px_4px_rgba(255,255,255,0.6),_0_2px_4px_rgba(0,0,0,0.3)] dark:from-zinc-800 dark:to-zinc-900 border dark:border-zinc-700", text: "text-gray-900 dark:text-gray-100", border: "border border-gray-300 dark:border-zinc-700" },
+    2.5: { bg: "bg-gradient-to-br from-red-400 to-red-500 shadow-[inset_0_1px_2px_rgba(255,255,255,0.3),_0_1px_2px_rgba(0,0,0,0.4)]", text: "text-white", border: "border border-red-300/50" },
+    1.25: { bg: "bg-gradient-to-br from-yellow-300 to-yellow-400 shadow-[inset_0_1px_2px_rgba(255,255,255,0.4),_0_1px_2px_rgba(0,0,0,0.3)]", text: "text-yellow-950", border: "border border-yellow-200/50" },
+    1: { bg: "bg-gradient-to-br from-zinc-500 to-zinc-600 shadow-[inset_0_1px_2px_rgba(255,255,255,0.2),_0_1px_2px_rgba(0,0,0,0.4)]", text: "text-white", border: "border border-zinc-400/50" },
+    0.5: { bg: "bg-gradient-to-br from-green-400 to-green-500 shadow-[inset_0_1px_2px_rgba(255,255,255,0.3),_0_1px_2px_rgba(0,0,0,0.4)]", text: "text-white", border: "border border-green-300/50" },
   },
   LB: {
-    45:  { bg: "bg-blue-600",   text: "text-white" },
-    35:  { bg: "bg-yellow-400", text: "text-black" },
-    25:  { bg: "bg-green-600",  text: "text-white" },
-    10:  { bg: "bg-white border border-gray-300", text: "text-black" },
-    5:   { bg: "bg-red-500",    text: "text-white" },
-    2.5: { bg: "bg-zinc-400",   text: "text-black" },
+    45: { bg: "bg-gradient-to-br from-blue-500 to-blue-600 shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),_0_2px_4px_rgba(0,0,0,0.5)]", text: "text-white", border: "border border-blue-400/50" },
+    35: { bg: "bg-gradient-to-br from-yellow-400 to-yellow-500 shadow-[inset_0_2px_4px_rgba(255,255,255,0.4),_0_2px_4px_rgba(0,0,0,0.4)]", text: "text-yellow-950", border: "border border-yellow-300/50" },
+    25: { bg: "bg-gradient-to-br from-green-500 to-green-600 shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),_0_2px_4px_rgba(0,0,0,0.5)]", text: "text-white", border: "border border-green-400/50" },
+    10: { bg: "bg-gradient-to-br from-gray-50 to-gray-200 shadow-[inset_0_2px_4px_rgba(255,255,255,0.6),_0_2px_4px_rgba(0,0,0,0.3)] dark:from-zinc-800 dark:to-zinc-900 border dark:border-zinc-700", text: "text-gray-900 dark:text-gray-100", border: "border border-gray-300 dark:border-zinc-700" },
+    5: { bg: "bg-gradient-to-br from-red-500 to-red-600 shadow-[inset_0_1px_2px_rgba(255,255,255,0.3),_0_1px_2px_rgba(0,0,0,0.4)]", text: "text-white", border: "border border-red-400/50" },
+    2.5: { bg: "bg-gradient-to-br from-zinc-400 to-zinc-500 shadow-[inset_0_1px_2px_rgba(255,255,255,0.3),_0_1px_2px_rgba(0,0,0,0.3)]", text: "text-zinc-950", border: "border border-zinc-300/50" },
   },
 }
 
@@ -35,9 +38,9 @@ function getPlateHeight(weight: number, units: "KG" | "LB"): number {
     if (weight >= 15) return 84
     if (weight >= 10) return 76
     if (weight >= 7.5) return 68
-    if (weight >= 5)  return 60
+    if (weight >= 5) return 60
     if (weight >= 2.5) return 44
-    if (weight >= 1)  return 36
+    if (weight >= 1) return 36
     return 30
   }
   // LB
@@ -45,14 +48,14 @@ function getPlateHeight(weight: number, units: "KG" | "LB"): number {
   if (weight >= 35) return 92
   if (weight >= 25) return 84
   if (weight >= 10) return 60
-  if (weight >= 5)  return 44
+  if (weight >= 5) return 44
   return 32
 }
 
 function getPlateWidth(weight: number, units: "KG" | "LB"): number {
   if (units === "KG") {
     if (weight >= 15) return 28
-    if (weight >= 5)  return 20
+    if (weight >= 5) return 20
     return 14
   }
   if (weight >= 25) return 28
@@ -70,8 +73,13 @@ function Plate({ weight, units }: { weight: number; units: "KG" | "LB" }) {
   const style = getPlateStyle(weight, units)
 
   return (
-    <div
-      className={`relative rounded-sm ${style.bg} flex items-center justify-center shrink-0`}
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.8, x: 20 }}
+      animate={{ opacity: 1, scale: 1, x: 0 }}
+      exit={{ opacity: 0, scale: 0.5, y: -20 }}
+      transition={{ type: "spring", stiffness: 350, damping: 25 }}
+      className={`relative rounded-sm ${style.bg} ${style.border ?? ""} flex items-center justify-center shrink-0`}
       style={{ height: `${height}px`, width: `${width}px` }}
     >
       <span
@@ -80,7 +88,7 @@ function Plate({ weight, units }: { weight: number; units: "KG" | "LB" }) {
       >
         {weight}
       </span>
-    </div>
+    </motion.div>
   )
 }
 
@@ -93,10 +101,19 @@ export function BarbellVisual({ plates, units }: BarbellVisualProps) {
     )
   }
 
+  // Generate stable keys for plates based on weight and index, so they animate smoothly
+  const platesWithKeys = useMemo(() => {
+    const counts: Record<number, number> = {}
+    return plates.map(weight => {
+      counts[weight] = (counts[weight] || 0) + 1
+      return { weight, key: `plate-${weight}-${counts[weight]}` }
+    })
+  }, [plates])
+
   // Left side: reversed (smallest on outside, largest near center)
-  const leftPlates = [...plates].reverse()
+  const leftPlates = [...platesWithKeys].reverse()
   // Right side: largest near center, smallest on outside
-  const rightPlates = [...plates]
+  const rightPlates = [...platesWithKeys]
 
   return (
     <div className="flex items-center justify-center py-4 overflow-x-auto">
@@ -107,9 +124,11 @@ export function BarbellVisual({ plates, units }: BarbellVisualProps) {
 
       {/* Left plates */}
       <div className="flex items-center gap-[2px]">
-        {leftPlates.map((plate, i) => (
-          <Plate key={`l-${i}`} weight={plate} units={units} />
-        ))}
+        <AnimatePresence mode="popLayout">
+          {leftPlates.map(({ weight, key }) => (
+            <Plate key={`l-${key}`} weight={weight} units={units} />
+          ))}
+        </AnimatePresence>
       </div>
 
       {/* Left collar */}
@@ -132,9 +151,11 @@ export function BarbellVisual({ plates, units }: BarbellVisualProps) {
 
       {/* Right plates */}
       <div className="flex items-center gap-[2px]">
-        {rightPlates.map((plate, i) => (
-          <Plate key={`r-${i}`} weight={plate} units={units} />
-        ))}
+        <AnimatePresence mode="popLayout">
+          {rightPlates.map(({ weight, key }) => (
+            <Plate key={`r-${key}`} weight={weight} units={units} />
+          ))}
+        </AnimatePresence>
       </div>
 
       {/* Right sleeve */}
