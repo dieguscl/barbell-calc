@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useRef, useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 
 interface BarbellVisualProps {
@@ -93,9 +93,60 @@ function Plate({ weight, units }: { weight: number; units: "KG" | "LB" }) {
 }
 
 export function BarbellVisual({ plates, units }: BarbellVisualProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+
+  useEffect(() => {
+    const updateScale = () => {
+      if (!containerRef.current || !contentRef.current) return
+
+      const containerWidth = containerRef.current.clientWidth
+      // Exact height of the container
+      const containerHeight = containerRef.current.clientHeight
+      const contentWidth = contentRef.current.scrollWidth
+
+      // The maximum visible disc height is 100px.
+      const contentHeight = 100
+
+      // Only pad width slightly to avoid side edges touching
+      const availableWidth = containerWidth - 16
+      const availableHeight = containerHeight
+
+      let newScale = 1
+
+      if (contentWidth > 0 && contentHeight > 0) {
+        newScale = Math.min(availableWidth / contentWidth, availableHeight / contentHeight)
+        newScale = Math.min(newScale, 1)
+      }
+
+      setScale(newScale)
+    }
+
+    updateScale()
+
+    window.addEventListener("resize", updateScale)
+
+    let observer: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(updateScale)
+      if (containerRef.current) {
+        observer.observe(containerRef.current)
+      }
+      if (contentRef.current) {
+        observer.observe(contentRef.current)
+      }
+    }
+
+    return () => {
+      window.removeEventListener("resize", updateScale)
+      if (observer) observer.disconnect()
+    }
+  }, [plates, units])
+
   if (plates.length === 0) {
     return (
-      <div className="flex items-center justify-center py-4">
+      <div className="flex items-center justify-center h-[140px]">
         <div className="h-3 w-48 bg-zinc-400 rounded-full" />
       </div>
     )
@@ -116,52 +167,61 @@ export function BarbellVisual({ plates, units }: BarbellVisualProps) {
   const rightPlates = [...platesWithKeys]
 
   return (
-    <div className="flex items-center justify-center py-4 overflow-x-auto">
-      {/* Left bar end (sleeve end) */}
-      <div className="w-1.5 h-5 bg-zinc-500 rounded-l-full shrink-0" />
-      {/* Left sleeve */}
-      <div className="w-4 h-2.5 bg-zinc-400 shrink-0" />
+    <div
+      ref={containerRef}
+      className="w-full flex items-center justify-center overflow-hidden h-[140px]"
+    >
+      <div
+        ref={contentRef}
+        className="w-max flex items-center justify-center origin-center transition-transform duration-200 shrink-0"
+        style={{ transform: `scale(${scale})` }}
+      >
+        {/* Left bar end (sleeve end) */}
+        <div className="w-1.5 h-5 bg-zinc-500 rounded-l-full shrink-0" />
+        {/* Left sleeve */}
+        <div className="w-4 h-2.5 bg-zinc-400 shrink-0" />
 
-      {/* Left plates */}
-      <div className="flex items-center gap-[2px]">
-        <AnimatePresence mode="popLayout">
-          {leftPlates.map(({ weight, key }) => (
-            <Plate key={`l-${key}`} weight={weight} units={units} />
-          ))}
-        </AnimatePresence>
-      </div>
-
-      {/* Left collar */}
-      <div className="w-2 h-8 bg-zinc-500 rounded-sm shrink-0" />
-
-      {/* Bar grip */}
-      <div className="w-16 sm:w-24 h-2.5 bg-zinc-400 shrink-0 relative">
-        <div className="absolute inset-0 flex items-center justify-center">
-          {/* Knurling marks */}
-          <div className="flex gap-1">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="w-[2px] h-2.5 bg-zinc-500/60" />
+        {/* Left plates */}
+        <div className="flex items-center gap-[2px]">
+          <AnimatePresence mode="popLayout">
+            {leftPlates.map(({ weight, key }) => (
+              <Plate key={`l-${key}`} weight={weight} units={units} />
             ))}
+          </AnimatePresence>
+        </div>
+
+        {/* Left collar */}
+        <div className="w-2 h-8 bg-zinc-500 rounded-sm shrink-0" />
+
+        {/* Bar grip */}
+        <div className="w-16 sm:w-24 h-2.5 bg-zinc-400 shrink-0 relative">
+          <div className="absolute inset-0 flex items-center justify-center">
+            {/* Knurling marks */}
+            <div className="flex gap-1">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="w-[2px] h-2.5 bg-zinc-500/60" />
+              ))}
+            </div>
           </div>
         </div>
+
+        {/* Right collar */}
+        <div className="w-2 h-8 bg-zinc-500 rounded-sm shrink-0" />
+
+        {/* Right plates */}
+        <div className="flex items-center gap-[2px]">
+          <AnimatePresence mode="popLayout">
+            {rightPlates.map(({ weight, key }) => (
+              <Plate key={`r-${key}`} weight={weight} units={units} />
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {/* Right sleeve */}
+        <div className="w-4 h-2.5 bg-zinc-400 shrink-0" />
+        {/* Right bar end */}
+        <div className="w-1.5 h-5 bg-zinc-500 rounded-r-full shrink-0" />
       </div>
-
-      {/* Right collar */}
-      <div className="w-2 h-8 bg-zinc-500 rounded-sm shrink-0" />
-
-      {/* Right plates */}
-      <div className="flex items-center gap-[2px]">
-        <AnimatePresence mode="popLayout">
-          {rightPlates.map(({ weight, key }) => (
-            <Plate key={`r-${key}`} weight={weight} units={units} />
-          ))}
-        </AnimatePresence>
-      </div>
-
-      {/* Right sleeve */}
-      <div className="w-4 h-2.5 bg-zinc-400 shrink-0" />
-      {/* Right bar end */}
-      <div className="w-1.5 h-5 bg-zinc-500 rounded-r-full shrink-0" />
     </div>
   )
 }

@@ -108,6 +108,15 @@ export function calculatePlateConfigurations({
 
     // Try to reuse as many base plates as possible without exceeding the target
     let basePlates = [...currentBasePlates]
+
+    // Before we even try to fit them, we should proactively drop plates that are 
+    // too small to be worth carrying over. The carryOverThreshold logic at the end 
+    // helps, but we also shouldn't hold onto small plates if they block a larger, 
+    // more efficient plate from being used.
+    // We already dropped them at the end of the last loop iter, but just in case:
+    const carryOverThreshold = units === "KG" ? 10 : 25;
+    basePlates = basePlates.filter(p => p >= carryOverThreshold);
+
     let baseSum = basePlates.reduce((sum, p) => sum + p, 0)
 
     // If the base plates sum exceeds the target, start removing the smallest plates
@@ -122,15 +131,16 @@ export function calculatePlateConfigurations({
     let finalTotalSideWeight = baseSum
 
     if (remainder > 0.001) {
-      const remResult = calculatePlatesOptimal(remainder, availablePlates)
+      const remResult = calculatePlatesOptimal(remainder, availablePlates, units)
       newPlates = remResult.plates
       finalTotalSideWeight += remResult.totalWeight
     }
 
     const finalPlates = [...basePlates, ...newPlates].sort((a, b) => b - a)
 
-    // Update the base plates for the next, heavier target
-    currentBasePlates = [...finalPlates]
+    // Update the base plates for the next, heavier target.
+    // We only carry over larger plates, allowing smaller ones to be optimized for fewer disks.
+    currentBasePlates = finalPlates.filter(p => p >= carryOverThreshold)
 
     // Calculate the actual total weight logic with barbell
     const actualTotalWeight = finalTotalSideWeight * 2 + equivalentBarWeight
@@ -154,7 +164,8 @@ export function calculatePlateConfigurations({
  */
 function calculatePlatesOptimal(
   targetWeight: number,
-  availablePlates: number[]
+  availablePlates: number[],
+  units: "KG" | "LB"
 ): { plates: number[]; totalWeight: number } {
   if (targetWeight <= 0) return { plates: [], totalWeight: 0 }
 
@@ -171,8 +182,12 @@ function calculatePlatesOptimal(
   for (let w = 1; w <= limit; w++) {
     // Iterate coins from heaviest to lightest so ties prefer heavier plates
     for (let i = 0; i < coins.length; i++) {
-      if (coins[i] <= w && dp[w - coins[i]] + 1 < dp[w]) {
-        dp[w] = dp[w - coins[i]] + 1
+      const p = availablePlates[i]
+      const threshold = units === "KG" ? 10 : 25
+      const cost = p < threshold ? 1000 : 1
+
+      if (coins[i] <= w && dp[w - coins[i]] + cost < dp[w]) {
+        dp[w] = dp[w - coins[i]] + cost
         usedCoin[w] = i
       }
     }

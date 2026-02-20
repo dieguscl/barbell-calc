@@ -20,7 +20,7 @@ export default function Home() {
     if (!results) return []
     return calculatePlateConfigurations({
       PR: results.PR,
-      barWeight: parseFloat(getEquivalentBarWeight("20", results.units)), // Not ideal strictly but sufficient since bar isn't returned
+      barWeight: results.barWeight,
       values: results.configurations.map(c => c.percentage || c.accurateWeight),
       units: results.units,
       sourceUnits: results.sourceUnits,

@@ -58,7 +58,7 @@ export function PlateConfigurations({ configurations, baseInventory, disabledPla
   const { t } = useLocale()
 
   return (
-    <div className="space-y-6 mt-6">
+    <div className="space-y-6 mt-6 w-full">
       {PR && (
         <div className="text-xl font-bold text-center">
           PR: {Math.round(PR)}{sourceUnits}

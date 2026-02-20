@@ -90,6 +90,7 @@ export interface CalculationResults {
   sourceUnits: "KG" | "LB"
   PR?: number
   isPercentages: boolean
+  barWeight: number
 }
 
 interface WeightCalculatorFormProps {
@@ -358,6 +359,7 @@ export function WeightCalculatorForm({ onCalculate }: WeightCalculatorFormProps)
         sourceUnits: units,
         PR,
         isPercentages: isPercentagesCalculation,
+        barWeight: parseFloat(values.barWeight),
       })
     }
   }

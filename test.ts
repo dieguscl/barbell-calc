@@ -198,16 +198,56 @@ export function calculatePlateConfigurations({
 
 
 // test cases
-console.log(
-    JSON.stringify(
-        calculatePlateConfigurations({
-            barWeight: 20,
-            values: [60, 80, 100],
-            units: "KG",
-            sourceUnits: "KG",
-            isPercentages: false,
-        }),
-        null,
-        2
-    )
-);
+const testCases = [
+    {
+        name: "Standard KG sequence",
+        params: { barWeight: 20, values: [60, 100, 140, 180], units: "KG" as const, sourceUnits: "KG" as const, isPercentages: false }
+    },
+    {
+        name: "Percentages of PR (100kg)",
+        params: { PR: 100, barWeight: 20, values: [50, 75, 90, 100], units: "KG" as const, sourceUnits: "KG" as const, isPercentages: true }
+    },
+    {
+        name: "Standard LB sequence",
+        params: { barWeight: 45, values: [135, 225, 315, 405], units: "LB" as const, sourceUnits: "LB" as const, isPercentages: false }
+    },
+    {
+        name: "Unit Conversion: Source LB, Target KG",
+        params: { barWeight: 20, values: [135, 225, 315], units: "KG" as const, sourceUnits: "LB" as const, isPercentages: false }
+    },
+    {
+        name: "Unit Conversion: Source KG, Target LB",
+        params: { barWeight: 45, values: [60, 100, 140], units: "LB" as const, sourceUnits: "KG" as const, isPercentages: false }
+    },
+    {
+        name: "Inexact Weights (Requires math to find closest match)",
+        params: { barWeight: 20, values: [61.25, 102.3, 144.9], units: "KG" as const, sourceUnits: "KG" as const, isPercentages: false }
+    },
+    {
+        name: "Weights equal or below bar weight",
+        params: { barWeight: 20, values: [10, 15, 20], units: "KG" as const, sourceUnits: "KG" as const, isPercentages: false }
+    }
+];
+
+console.log("Running comprehensive test cases for calculatePlateConfigurations...\n");
+
+testCases.forEach((tc, i) => {
+    console.log(`\n======================================================`);
+    console.log(`Test Case ${i + 1}: ${tc.name}`);
+    console.log(`======================================================`);
+
+    try {
+        const configs = calculatePlateConfigurations(tc.params);
+
+        configs.forEach((config, idx) => {
+            const val = tc.params.values[idx];
+            const targetStr = tc.params.isPercentages ? `${val}% of PR ${tc.params.PR}` : `${val}`;
+            console.log(`  Target: ${targetStr}`);
+            console.log(`    Closest Formed: ${config.closestWeight} (Accurate: ${config.accurateWeight.toFixed(2)})`);
+            console.log(`    Plates per side: [${config.plates.join(', ')}]`);
+        });
+    } catch (err: any) {
+        console.error(`  Error: ${err.message}`);
+    }
+});
+
