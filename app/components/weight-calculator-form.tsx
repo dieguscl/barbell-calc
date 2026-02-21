@@ -586,20 +586,25 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
                     <FormLabel>
                       <TypographyH3>{t("barWeight")}</TypographyH3>
                     </FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={t("barWeightPlaceholder")} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {BAR_OPTIONS[units].map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <Tabs
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        className="w-full"
+                      >
+                        <TabsList className="grid w-full grid-cols-2">
+                          {BAR_OPTIONS[units].map((option) => (
+                            <TabsTrigger 
+                              key={option.value} 
+                              value={option.value}
+                              data-state={field.value === option.value ? "active" : "inactive"}
+                            >
+                              {option.label}
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+                      </Tabs>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
