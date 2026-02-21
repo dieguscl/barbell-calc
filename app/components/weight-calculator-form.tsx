@@ -357,7 +357,26 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
   }
 
   const shareURL = async () => {
-    const url = window.location.href
+    if (typeof window === 'undefined') return;
+
+    const params = new URLSearchParams();
+    params.set('units', units);
+    params.set('isPercentages', isPercentagesCalculation.toString());
+
+    const values = form.getValues();
+    if (values.movement) params.set('movement', values.movement);
+    if (values.barWeight) params.set('barWeight', values.barWeight);
+    if (isPercentagesCalculation && values.PR) params.set('PR', values.PR);
+
+    if (Array.isArray(values.percentages)) {
+      values.percentages.forEach((value: string, index: number) => {
+        if (value) {
+          params.set(`value${index}`, value);
+        }
+      });
+    }
+
+    const url = `${window.location.origin}/results?${params.toString()}`
     if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(url)
     } else {

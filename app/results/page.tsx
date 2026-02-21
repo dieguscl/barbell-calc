@@ -5,9 +5,14 @@ import { useSearchParams } from "next/navigation"
 import { calculatePlateConfigurations, calculatePlateInventory } from "@/lib/calculations"
 import { PlateConfigurations } from "./components/plate-configurations"
 import { ResultsTitle } from "./components/results-title"
+import { Button } from "@/components/ui/button"
+import { Share2, Check } from "lucide-react"
+import { useLocale } from "@/lib/locale-context"
 
 export default function ResultsPage() {
   const searchParams = useSearchParams()
+  const { t } = useLocale()
+  const [copied, setCopied] = useState(false)
 
   const units = (searchParams.get("units") as "KG" | "LB") || "KG"
   const sourceUnits = (searchParams.get("sourceUnits") as "KG" | "LB") || units
@@ -68,9 +73,44 @@ export default function ResultsPage() {
 
   const editUrl = `/?${searchParams.toString()}`
 
+  const shareURL = async () => {
+    const url = window.location.href
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(url)
+    } else {
+      const textArea = document.createElement("textarea")
+      textArea.value = url
+      textArea.style.position = "fixed"
+      textArea.style.left = "-9999px"
+      textArea.style.top = "0"
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      try {
+        document.execCommand('copy')
+      } catch (err) {
+        console.error('Fallback: Oops, unable to copy', err)
+      }
+      document.body.removeChild(textArea)
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
     <main className="container mx-auto p-4 max-w-2xl">
-      <ResultsTitle editUrl={editUrl} />
+      <div className="flex items-center justify-between">
+        <ResultsTitle editUrl={editUrl} />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={shareURL}
+          className="flex items-center gap-2"
+        >
+          {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+          {copied ? t("copied") : t("share")}
+        </Button>
+      </div>
       <PlateConfigurations
         configurations={configurations}
         baseInventory={combinedInventory}
