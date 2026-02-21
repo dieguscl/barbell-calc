@@ -547,7 +547,7 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
                           <TypographyH3>{t("pr")}</TypographyH3>
                         </FormLabel>
                         <FormControl>
-                          <Input placeholder={t("prPlaceholder")} {...field} />
+                          <Input placeholder={t("prPlaceholder")} {...field} type="number" inputMode="decimal" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -623,6 +623,7 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
                               <Input
                                 placeholder={isPercentagesCalculation ? t("percentagePlaceholder") : t("weightPlaceholder")}
                                 {...field}
+                                inputMode="decimal"
                                 onChange={(e) => {
                                   const val = e.target.value;
                                   if (val.includes(',')) {

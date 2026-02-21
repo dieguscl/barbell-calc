@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<body>
+<div id="container" style="width: 300px; display: flex; justify-content: center; overflow: hidden; background: #eee; min-height: 140px; padding-top: 1rem; padding-bottom: 1rem;">
+    <div id="content" style="display: flex; justify-content: center; align-items: center; transform-origin: center; flex-shrink: 0; background: rgba(0,255,0,0.2);">
+        <div style="width: 400px; height: 50px; background: red;"></div>
+    </div>
+</div>
+<script>
+    const container = document.getElementById("container");
+    const content = document.getElementById("content");
+    const containerWidth = container.clientWidth;
+    const contentWidth = content.scrollWidth;
+    let scale = containerWidth / contentWidth;
+    content.style.transform = `scale(${scale})`;
+    console.log({ containerWidth, contentWidth, scale });
+</script>
+</body>
+</html>
