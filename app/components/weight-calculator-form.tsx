@@ -29,10 +29,9 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { TypographyH3 } from "@/components/ui/typogrpahy-h3"
-import { calculatePlateConfigurations, calculatePlateInventory } from "@/lib/calculations"
-import type { PlateConfiguration, PlateInventory } from "@/lib/calculations"
 import { AlertCircle, Check } from "lucide-react"
 import { useLocale } from "@/lib/locale-context"
+import { useRouter } from "next/navigation"
 
 const STORAGE_KEYS = {
   UNITS: 'barbell-calc-units',
@@ -72,7 +71,7 @@ const BAR_OPTIONS = {
   ],
 }
 
-export const getEquivalentBarWeight = (currentWeight: string, toUnit: "KG" | "LB") => {
+const getEquivalentBarWeight = (currentWeight: string, toUnit: "KG" | "LB") => {
   if (toUnit === "LB") {
     if (currentWeight === "20") return "45"
     if (currentWeight === "15") return "35"
@@ -83,22 +82,13 @@ export const getEquivalentBarWeight = (currentWeight: string, toUnit: "KG" | "LB
   return currentWeight
 }
 
-export interface CalculationResults {
-  configurations: PlateConfiguration[]
-  baseInventory: PlateInventory
-  units: "KG" | "LB"
-  sourceUnits: "KG" | "LB"
-  PR?: number
-  isPercentages: boolean
-  barWeight: number
-}
-
 interface WeightCalculatorFormProps {
-  onCalculate: (results: CalculationResults) => void
+  // No longer needed
 }
 
-export function WeightCalculatorForm({ onCalculate }: WeightCalculatorFormProps) {
+export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
   const { t } = useLocale()
+  const router = useRouter()
 
   // 1. Initialize state with default values
   const [units, setUnits] = useState<"KG" | "LB">(() => {
@@ -335,32 +325,7 @@ export function WeightCalculatorForm({ onCalculate }: WeightCalculatorFormProps)
         searchParams.set(`value${index}`, value.toString())
       })
 
-      // Update URL for sharing without navigating
-      window.history.replaceState({}, '', `?${searchParams.toString()}`)
-
-      // Compute results client-side
-      const PR = isPercentagesCalculation && values.PR ? parseFloat(values.PR) : undefined
-
-      const baseConfigs = calculatePlateConfigurations({
-        PR,
-        barWeight: parseFloat(values.barWeight),
-        values: numericValues,
-        units: targetUnits,
-        sourceUnits: units,
-        isPercentages: isPercentagesCalculation,
-        disabledPlates: [],
-      })
-      const baseInventory = calculatePlateInventory(baseConfigs)
-
-      onCalculate({
-        configurations: baseConfigs,
-        baseInventory,
-        units: targetUnits,
-        sourceUnits: units,
-        PR,
-        isPercentages: isPercentagesCalculation,
-        barWeight: parseFloat(values.barWeight),
-      })
+      router.push(`/results?${searchParams.toString()}`)
     }
   }
 
