@@ -233,13 +233,13 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
 
       let shouldUpdate = false
       if (typeof currentData === 'object' && currentData !== null) {
-        if (currentData.units !== units || currentData.pr !== values.PR) shouldUpdate = true
+        if (currentData.units !== units || currentData.pr !== values.PR || currentData.barWeight !== values.barWeight) shouldUpdate = true
       } else if (currentData !== undefined) {
         shouldUpdate = true
       }
 
       if (shouldUpdate) {
-        storedPRs[movementLower] = { pr: values.PR, units }
+        storedPRs[movementLower] = { pr: values.PR, units, barWeight: values.barWeight }
         localStorage.setItem(STORAGE_KEYS.MOVEMENT_PRS, JSON.stringify(storedPRs))
         setSavedMovements(Object.keys(storedPRs).sort())
       }
@@ -255,6 +255,9 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
         if (savedData !== undefined) {
           if (typeof savedData === 'object' && savedData !== null) {
             form.setValue('PR', savedData.pr)
+            if (savedData.barWeight) {
+              form.setValue('barWeight', savedData.barWeight)
+            }
             if (savedData.units && savedData.units !== units) {
               setUnits(savedData.units as "KG" | "LB")
               updateURL({ units: savedData.units as "KG" | "LB" })
@@ -276,21 +279,21 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
         localStorage.setItem(STORAGE_KEYS.BAR_WEIGHT, value.barWeight)
       }
 
-      if ((name === 'movement' || name === 'PR') && value.movement && value.PR) {
+      if ((name === 'movement' || name === 'PR' || name === 'barWeight') && value.movement && value.PR && value.barWeight) {
         const storedPRs = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOVEMENT_PRS) || '{}')
         const movementLower = value.movement.toLowerCase()
         const currentData = storedPRs[movementLower]
 
         let shouldUpdate = false
         if (typeof currentData === 'object' && currentData !== null) {
-          if (currentData.pr !== value.PR || currentData.units !== units) shouldUpdate = true
+          if (currentData.pr !== value.PR || currentData.units !== units || currentData.barWeight !== value.barWeight) shouldUpdate = true
         } else {
           // Backward compatibility or new entry
           if (currentData !== value.PR) shouldUpdate = true
         }
 
         if (shouldUpdate) {
-          storedPRs[movementLower] = { pr: value.PR, units }
+          storedPRs[movementLower] = { pr: value.PR, units, barWeight: value.barWeight }
           localStorage.setItem(STORAGE_KEYS.MOVEMENT_PRS, JSON.stringify(storedPRs))
           setSavedMovements(Object.keys(storedPRs).sort())
         }
