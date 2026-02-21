@@ -47,10 +47,12 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <LocaleProvider>
-            <div className="fixed top-4 right-4 flex gap-2">
-              <LocaleSwitcher />
-              <ModeToggle />
-            </div>
+            <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+              <div className="container mx-auto flex h-14 items-center justify-end gap-2 px-4">
+                <LocaleSwitcher />
+                <ModeToggle />
+              </div>
+            </header>
 
             {children}
           </LocaleProvider>

@@ -98,7 +98,7 @@ export default function ResultsPage() {
   }
 
   return (
-    <main className="container mx-auto p-4 max-w-2xl">
+    <main className="container mx-auto p-4 max-w-2xl mt-8">
       <div className="flex items-center justify-between">
         <ResultsTitle editUrl={editUrl} />
         <Button
