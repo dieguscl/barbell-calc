@@ -1,10 +1,13 @@
 "use client"
 
+import { useState } from "react"
+import { Maximize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { useLocale } from "@/lib/locale-context"
 import { BarbellVisual } from "./barbell-visual"
 import { PlateInventoryDisplay } from "./plate-inventory-display"
+import { BarbellFullscreenModal } from "./barbell-fullscreen-modal"
 import type { PlateInventory } from "@/lib/calculations"
 
 interface PlateConfiguration {
@@ -56,6 +59,7 @@ function PlateSummary({ plates, units }: { plates: number[]; units: "KG" | "LB" 
 
 export function PlateConfigurations({ configurations, baseInventory, disabledPlates, onTogglePlate, units, sourceUnits, PR, isPercentages, editUrl, onEdit }: Props) {
   const { t } = useLocale()
+  const [modalIndex, setModalIndex] = useState<number | null>(null)
 
   return (
     <div className="space-y-6 mt-6 w-full">
@@ -99,11 +103,32 @@ export function PlateConfigurations({ configurations, baseInventory, disabledPla
             </div>
           )}
 
-          <BarbellVisual plates={config.plates} units={units} />
+          {/* Tappable barbell — click opens fullscreen */}
+          <button
+            className="w-full group relative cursor-pointer focus:outline-none"
+            onClick={() => setModalIndex(index)}
+            title="Ver en pantalla completa"
+          >
+            <BarbellVisual plates={config.plates} units={units} />
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 rounded-md p-1">
+              <Maximize2 size={14} className="text-muted-foreground" />
+            </div>
+          </button>
 
           <PlateSummary plates={config.plates} units={units} />
         </div>
       ))}
+
+      {modalIndex !== null && (
+        <BarbellFullscreenModal
+          configurations={configurations}
+          initialIndex={modalIndex}
+          units={units}
+          sourceUnits={sourceUnits}
+          isPercentages={isPercentages}
+          onClose={() => setModalIndex(null)}
+        />
+      )}
 
       {onEdit ? (
         <Button className="w-full" onClick={onEdit}>
