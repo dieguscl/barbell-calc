@@ -103,7 +103,7 @@ export function BarbellFullscreenModal({
         </div>
 
         {/* Barbell visual — enlarged */}
-        <div className={`w-full ${landscape ? "h-[220px]" : "h-[180px]"} transition-all duration-300`}>
+        <div className={`w-full transition-all duration-300 ${landscape ? "h-[320px]" : "h-[180px]"}`}>
           <BarbellVisual plates={config.plates} units={units} />
         </div>
 
