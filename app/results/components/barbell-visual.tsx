@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion"
 interface BarbellVisualProps {
   plates: number[]
   units: "KG" | "LB"
+  height?: number
 }
 
 const PLATE_COLORS: Record<string, Record<number, { bg: string; text: string; border?: string }>> = {
@@ -92,7 +93,7 @@ function Plate({ weight, units }: { weight: number; units: "KG" | "LB" }) {
   )
 }
 
-export function BarbellVisual({ plates, units }: BarbellVisualProps) {
+export function BarbellVisual({ plates, units, height = 140 }: BarbellVisualProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
@@ -146,7 +147,7 @@ export function BarbellVisual({ plates, units }: BarbellVisualProps) {
 
   if (plates.length === 0) {
     return (
-      <div className="flex items-center justify-center h-[140px]">
+      <div className="flex items-center justify-center" style={{ height }}>
         <div className="h-3 w-48 bg-zinc-400 rounded-full" />
       </div>
     )
@@ -169,7 +170,8 @@ export function BarbellVisual({ plates, units }: BarbellVisualProps) {
   return (
     <div
       ref={containerRef}
-      className="w-full flex items-center justify-center overflow-hidden h-[140px]"
+      className="w-full flex items-center justify-center overflow-hidden"
+      style={{ height }}
     >
       <div
         ref={contentRef}
