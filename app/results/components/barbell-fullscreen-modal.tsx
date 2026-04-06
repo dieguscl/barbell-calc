@@ -103,7 +103,7 @@ export function BarbellFullscreenModal({
         </div>
 
         {/* Barbell visual — enlarged */}
-        <BarbellVisual plates={config.plates} units={units} height={landscape ? 320 : 180} />
+        <BarbellVisual plates={config.plates} units={units} height={landscape ? 320 : 180} maxScale={4} />
 
         {/* Plate summary */}
         {config.plates.length > 0 && (

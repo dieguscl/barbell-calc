@@ -7,6 +7,7 @@ interface BarbellVisualProps {
   plates: number[]
   units: "KG" | "LB"
   height?: number
+  maxScale?: number
 }
 
 const PLATE_COLORS: Record<string, Record<number, { bg: string; text: string; border?: string }>> = {
@@ -93,7 +94,7 @@ function Plate({ weight, units }: { weight: number; units: "KG" | "LB" }) {
   )
 }
 
-export function BarbellVisual({ plates, units, height = 140 }: BarbellVisualProps) {
+export function BarbellVisual({ plates, units, height = 140, maxScale = 1 }: BarbellVisualProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
@@ -118,7 +119,7 @@ export function BarbellVisual({ plates, units, height = 140 }: BarbellVisualProp
 
       if (contentWidth > 0 && contentHeight > 0) {
         newScale = Math.min(availableWidth / contentWidth, availableHeight / contentHeight)
-        newScale = Math.min(newScale, 1)
+        newScale = Math.min(newScale, maxScale)
       }
 
       setScale(newScale)
@@ -143,7 +144,7 @@ export function BarbellVisual({ plates, units, height = 140 }: BarbellVisualProp
       window.removeEventListener("resize", updateScale)
       if (observer) observer.disconnect()
     }
-  }, [plates, units])
+  }, [plates, units, height, maxScale])
 
   if (plates.length === 0) {
     return (
