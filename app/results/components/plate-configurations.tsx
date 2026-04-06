@@ -105,12 +105,12 @@ export function PlateConfigurations({ configurations, baseInventory, disabledPla
 
           {/* Tappable barbell — click opens fullscreen */}
           <button
-            className="w-full group relative cursor-pointer focus:outline-none"
+            className="w-full relative cursor-pointer focus:outline-none"
             onClick={() => setModalIndex(index)}
             title="Ver en pantalla completa"
           >
             <BarbellVisual plates={config.plates} units={units} />
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 rounded-md p-1">
+            <div className="absolute top-2 right-2 bg-background/80 rounded-md p-1">
               <Maximize2 size={14} className="text-muted-foreground" />
             </div>
           </button>
