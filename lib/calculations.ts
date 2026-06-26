@@ -14,13 +14,24 @@ interface CalculationParams {
   isPercentages: boolean
   sourceUnits: "KG" | "LB"
   disabledPlates?: number[]
+  /**
+   * When false (default, "simple mode"), any plate strictly below
+   * SMALL_PLATE_THRESHOLD (5kg / 10lb) may appear at most once per side.
+   * When true ("advanced"), small plates can repeat freely (legacy behavior).
+   */
+  allowRepeatSmallPlates?: boolean
+  /** Override the default plate set (advanced custom inventory). */
+  availablePlatesOverride?: number[]
 }
+
+/** A plate strictly below this (per unit) is a "small" plate. */
+const SMALL_PLATE_THRESHOLD = { KG: 5, LB: 10 } as const
 
 export interface PlateInventory {
   [weight: number]: number
 }
 
-const AVAILABLE_PLATES = {
+export const AVAILABLE_PLATES = {
   KG: [25, 20, 15, 10, 7.5, 5, 1.5, 1, 0.5],
   LB: [45, 35, 25, 10, 5, 2.5],
 }
@@ -49,8 +60,13 @@ export function calculatePlateConfigurations({
   sourceUnits,
   isPercentages,
   disabledPlates = [],
+  allowRepeatSmallPlates = false,
+  availablePlatesOverride,
 }: CalculationParams): PlateConfiguration[] {
-  const availablePlates = AVAILABLE_PLATES[units].filter(
+  const basePlateSet = availablePlatesOverride && availablePlatesOverride.length > 0
+    ? [...availablePlatesOverride].sort((a, b) => b - a)
+    : AVAILABLE_PLATES[units]
+  const availablePlates = basePlateSet.filter(
     (plate) => !disabledPlates.includes(plate)
   )
 
@@ -131,7 +147,7 @@ export function calculatePlateConfigurations({
     let finalTotalSideWeight = baseSum
 
     if (remainder > 0.001) {
-      const remResult = calculatePlatesOptimal(remainder, availablePlates, units)
+      const remResult = calculatePlatesOptimal(remainder, availablePlates, units, allowRepeatSmallPlates)
       newPlates = remResult.plates
       finalTotalSideWeight += remResult.totalWeight
     }
@@ -159,15 +175,87 @@ export function calculatePlateConfigurations({
 
 
 /**
- * Pure dynamic programming (coin change) to find the minimum number of plates
- * to reach the closest achievable weight to the target.
+ * Find the closest achievable side weight to the target.
+ *
+ * In simple mode (allowRepeatSmallPlates = false) every plate strictly below
+ * SMALL_PLATE_THRESHOLD may be used at most once. Since the small-plate set is
+ * tiny (≤3 in KG, ≤2 in LB) we enumerate every subset of small plates and solve
+ * the remainder with the unbounded large-plate DP, then keep the best result.
+ *
+ * In advanced mode every plate is unbounded — identical to the legacy behavior.
  */
 function calculatePlatesOptimal(
   targetWeight: number,
   availablePlates: number[],
-  units: "KG" | "LB"
+  units: "KG" | "LB",
+  allowRepeatSmallPlates: boolean = false
 ): { plates: number[]; totalWeight: number } {
   if (targetWeight <= 0) return { plates: [], totalWeight: 0 }
+
+  if (allowRepeatSmallPlates) {
+    return unboundedClosest(targetWeight, availablePlates, units)
+  }
+
+  const threshold = SMALL_PLATE_THRESHOLD[units]
+  const smallPlates = availablePlates.filter((p) => p < threshold)
+  const largePlates = availablePlates.filter((p) => p >= threshold)
+
+  // No small plates to constrain → plain unbounded solve.
+  if (smallPlates.length === 0) {
+    return unboundedClosest(targetWeight, availablePlates, units)
+  }
+
+  let best: { plates: number[]; totalWeight: number } | null = null
+  const subsetCount = 1 << smallPlates.length
+
+  for (let mask = 0; mask < subsetCount; mask++) {
+    const chosenSmall: number[] = []
+    let smallSum = 0
+    for (let i = 0; i < smallPlates.length; i++) {
+      if (mask & (1 << i)) {
+        chosenSmall.push(smallPlates[i])
+        smallSum += smallPlates[i]
+      }
+    }
+
+    const remainder = targetWeight - smallSum
+    const large = remainder > 0.001
+      ? unboundedClosest(remainder, largePlates, units)
+      : { plates: [] as number[], totalWeight: 0 }
+
+    const plates = [...chosenSmall, ...large.plates].sort((a, b) => b - a)
+    const totalWeight = smallSum + large.totalWeight
+
+    if (best === null) {
+      best = { plates, totalWeight }
+      continue
+    }
+
+    const diff = Math.abs(totalWeight - targetWeight)
+    const bestDiff = Math.abs(best.totalWeight - targetWeight)
+    // Primary: closest to target. Secondary: fewest plates.
+    if (diff < bestDiff - 0.001 ||
+        (Math.abs(diff - bestDiff) <= 0.001 && plates.length < best.plates.length)) {
+      best = { plates, totalWeight }
+    }
+  }
+
+  return best ?? { plates: [], totalWeight: 0 }
+}
+
+/**
+ * Pure dynamic programming (coin change) to find the minimum number of plates
+ * to reach the closest achievable weight to the target. Every plate is
+ * unbounded (may repeat any number of times).
+ */
+function unboundedClosest(
+  targetWeight: number,
+  availablePlates: number[],
+  units: "KG" | "LB"
+): { plates: number[]; totalWeight: number } {
+  if (targetWeight <= 0 || availablePlates.length === 0) {
+    return { plates: [], totalWeight: 0 }
+  }
 
   const factor = 2
   const target = Math.round(targetWeight * factor)

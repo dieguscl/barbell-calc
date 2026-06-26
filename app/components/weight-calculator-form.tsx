@@ -32,11 +32,15 @@ import { TypographyH3 } from "@/components/ui/typogrpahy-h3"
 import { AlertCircle, Check } from "lucide-react"
 import { useLocale } from "@/lib/locale-context"
 import { useRouter } from "next/navigation"
+import { AdvancedSection } from "./advanced-section"
 
 const STORAGE_KEYS = {
   UNITS: 'barbell-calc-units',
   BAR_WEIGHT: 'barbell-calc-bar-weight',
-  MOVEMENT_PRS: 'barbell-calc-movement-prs'
+  MOVEMENT_PRS: 'barbell-calc-movement-prs',
+  ALLOW_REPEAT: 'barbell-calc-allow-repeat',
+  CUSTOM_BAR: 'barbell-calc-custom-bar',
+  DISABLED_PLATES: 'barbell-calc-disabled-plates',
 } as const
 
 const createFormSchema = (isPercentagesCalculation: boolean, t: (key: any) => string) => {
@@ -104,6 +108,45 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
   const [copied, setCopied] = useState(false)
   const [savedMovements, setSavedMovements] = useState<string[]>([])
   const [isAddingMovement, setIsAddingMovement] = useState(false)
+
+  // Advanced settings
+  const [allowRepeatSmallPlates, setAllowRepeatSmallPlates] = useState(false)
+  const [useCustomBar, setUseCustomBar] = useState(false)
+  const [customBarWeight, setCustomBarWeight] = useState("")
+  const [disabledPlates, setDisabledPlates] = useState<number[]>([])
+
+  // Load persisted advanced settings on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setAllowRepeatSmallPlates(localStorage.getItem(STORAGE_KEYS.ALLOW_REPEAT) === 'true')
+    const cb = localStorage.getItem(STORAGE_KEYS.CUSTOM_BAR)
+    if (cb) { setUseCustomBar(true); setCustomBarWeight(cb) }
+    try {
+      const dp = JSON.parse(localStorage.getItem(STORAGE_KEYS.DISABLED_PLATES) || '[]')
+      if (Array.isArray(dp)) setDisabledPlates(dp)
+    } catch { /* ignore */ }
+  }, [])
+
+  // Persist advanced settings
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem(STORAGE_KEYS.ALLOW_REPEAT, String(allowRepeatSmallPlates))
+  }, [allowRepeatSmallPlates])
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (useCustomBar && customBarWeight) localStorage.setItem(STORAGE_KEYS.CUSTOM_BAR, customBarWeight)
+    else localStorage.removeItem(STORAGE_KEYS.CUSTOM_BAR)
+  }, [useCustomBar, customBarWeight])
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem(STORAGE_KEYS.DISABLED_PLATES, JSON.stringify(disabledPlates))
+  }, [disabledPlates])
+
+  const togglePlate = (plate: number) => {
+    setDisabledPlates(prev =>
+      prev.includes(plate) ? prev.filter(p => p !== plate) : [...prev, plate]
+    )
+  }
 
   // 2. Create form schema based on initial state
   const formSchema = useMemo(() => createFormSchema(isPercentagesCalculation, t), [isPercentagesCalculation, t])
@@ -311,10 +354,15 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
         .filter(val => val !== "")
         .map(val => parseFloat(val))
 
+      const effectiveBar = useCustomBar && customBarWeight ? customBarWeight : values.barWeight
+
       searchParams.set('units', targetUnits)
-      searchParams.set('barWeight', values.barWeight)
+      searchParams.set('barWeight', effectiveBar)
       searchParams.set('isPercentages', isPercentagesCalculation.toString())
       searchParams.set('sourceUnits', units)
+
+      if (allowRepeatSmallPlates) searchParams.set('allowRepeat', 'true')
+      if (disabledPlates.length > 0) searchParams.set('disabled', disabledPlates.join(','))
 
       if (values.movement) {
         searchParams.set('movement', values.movement)
@@ -332,6 +380,29 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
     }
   }
 
+  // Side-by-side: compute the selected movement + percentages for several people.
+  const handleCompare = (selectedIds: string[]) => {
+    const values = form.getValues()
+    const params = new URLSearchParams()
+    params.set('mode', 'sidebyside')
+    params.set('profiles', selectedIds.join(','))
+    params.set('units', units)
+    params.set('isPercentages', 'true')
+    if (values.movement) params.set('movement', values.movement)
+    if (allowRepeatSmallPlates) params.set('allowRepeat', 'true')
+    if (disabledPlates.length > 0) params.set('disabled', disabledPlates.join(','))
+    if (useCustomBar && customBarWeight) params.set('barWeight', customBarWeight)
+
+    values.percentages
+      .filter(v => v.trim() !== '')
+      .forEach((v, i) => params.set(`value${i}`, parseFloat(v).toString()))
+
+    router.push(`/results?${params.toString()}`)
+  }
+
+  const movementValue = form.watch('movement')
+  const canCompare = isPercentagesCalculation && !!movementValue?.trim()
+
   const addPercentage = () => {
     setPercentageCount(prev => prev + 1)
     const currentPercentages = form.getValues().percentages
@@ -348,6 +419,36 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
     const newPercentages = currentPercentages.filter((_, i) => i !== index)
     form.setValue('percentages', newPercentages)
     setPercentageCount(prev => Math.max(newPercentages.length, 1))
+  }
+
+  // Step increments depend on tab + units (manual weights only).
+  const stepButtons = isPercentagesCalculation
+    ? [5, 10]
+    : units === "KG"
+      ? [2.5, 5, 10]
+      : [5, 10, 20]
+
+  // Append a new row = last numeric value + step. If the trailing row is empty,
+  // fill it instead of leaving a blank row behind.
+  const appendWithStep = (step: number) => {
+    const current = [...form.getValues().percentages]
+    const lastNumeric = [...current]
+      .reverse()
+      .find(v => v != null && v.trim() !== "" && !isNaN(parseFloat(v)))
+    const base = lastNumeric !== undefined ? parseFloat(lastNumeric) : 0
+    const next = parseFloat((base + step).toFixed(2))
+    const lastIdx = current.length - 1
+    if (current.length > 0 && (current[lastIdx] == null || current[lastIdx].trim() === "")) {
+      current[lastIdx] = String(next)
+    } else {
+      current.push(String(next))
+    }
+    form.setValue('percentages', current, { shouldValidate: true })
+    setPercentageCount(current.length)
+    setTimeout(() => {
+      const inputs = document.querySelectorAll('input[name^="percentages."]');
+      (inputs[current.length - 1] as HTMLInputElement)?.focus();
+    }, 0);
   }
 
   const resetForm = () => {
@@ -703,6 +804,21 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
                 </div>
               )}
 
+              <div className="flex flex-wrap gap-2">
+                {stepButtons.map((step) => (
+                  <Button
+                    key={step}
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => appendWithStep(step)}
+                  >
+                    +{step}
+                  </Button>
+                ))}
+              </div>
+
               <Button
                 type="button"
                 variant="outline"
@@ -712,6 +828,20 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
                 <Plus className="w-4 h-4 mr-2" />
                 {isPercentagesCalculation ? t("addPercentage") : t("addWeight")}
               </Button>
+
+              <AdvancedSection
+                units={units}
+                allowRepeatSmallPlates={allowRepeatSmallPlates}
+                onAllowRepeatChange={setAllowRepeatSmallPlates}
+                useCustomBar={useCustomBar}
+                onUseCustomBarChange={setUseCustomBar}
+                customBarWeight={customBarWeight}
+                onCustomBarWeightChange={setCustomBarWeight}
+                disabledPlates={disabledPlates}
+                onTogglePlate={togglePlate}
+                canCompare={canCompare}
+                onCompare={handleCompare}
+              />
 
               <div className="space-y-4">
                 <Button

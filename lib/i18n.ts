@@ -59,6 +59,49 @@ export const translations = {
     grabThesePlates: "Grab these plates",
     perSide: "per side",
     discsTotal: "discs total",
+
+    // Advanced section
+    advanced: "Advanced",
+    allowRepeatSmallPlates: "Allow repeated small plates",
+    allowRepeatSmallPlatesDesc: "Use more than one plate under 5kg / 10lb",
+    customBarWeight: "Custom bar weight",
+    customBarWeightPlaceholder: "e.g. 10",
+    useCustomBar: "Use custom bar weight",
+    plateInventory: "Available plates",
+    plateInventoryDesc: "Tap to toggle which plates you have",
+
+    // Profiles
+    profiles: "Profiles",
+    profilesDesc: "Other people's PRs shared with you",
+    me: "Me",
+    gender: "Gender",
+    male: "Male",
+    female: "Female",
+    addProfile: "Add person",
+    deleteProfile: "Delete",
+    shareMyProfile: "Share my PRs",
+    shareProfile: "Share",
+    profileName: "Name",
+    profileNamePlaceholder: "e.g. Alex",
+    noProfiles: "No saved people yet",
+
+    // Side by side
+    compareSideBySide: "Compare side by side",
+    selectPeople: "Select people to compare",
+    sideBySide: "Side by side",
+
+    // Import
+    importTitle: "Import profile",
+    importPrompt: "Add this person to your device?",
+    importAdd: "Add to my device",
+    importCancel: "Cancel",
+    importInvalid: "This share link is invalid or corrupt.",
+    importSuccess: "Profile added",
+    importMovements: "movements",
+    scanToImport: "Scan to import",
+    shareLink: "Share link",
+    copyLink: "Copy link",
+    goToCalculator: "Go to calculator",
   },
   es: {
     // App
@@ -118,6 +161,49 @@ export const translations = {
     grabThesePlates: "Busca estos discos",
     perSide: "por lado",
     discsTotal: "discos en total",
+
+    // Advanced section
+    advanced: "Avanzado",
+    allowRepeatSmallPlates: "Permitir discos pequeños repetidos",
+    allowRepeatSmallPlatesDesc: "Usar más de un disco menor a 5kg / 10lb",
+    customBarWeight: "Peso de barra personalizado",
+    customBarWeightPlaceholder: "ej. 10",
+    useCustomBar: "Usar peso de barra personalizado",
+    plateInventory: "Discos disponibles",
+    plateInventoryDesc: "Toca para activar los discos que tienes",
+
+    // Profiles
+    profiles: "Perfiles",
+    profilesDesc: "PRs de otras personas compartidos contigo",
+    me: "Yo",
+    gender: "Género",
+    male: "Hombre",
+    female: "Mujer",
+    addProfile: "Agregar persona",
+    deleteProfile: "Eliminar",
+    shareMyProfile: "Compartir mis PRs",
+    shareProfile: "Compartir",
+    profileName: "Nombre",
+    profileNamePlaceholder: "ej. Alex",
+    noProfiles: "Aún no hay personas guardadas",
+
+    // Side by side
+    compareSideBySide: "Comparar lado a lado",
+    selectPeople: "Selecciona personas a comparar",
+    sideBySide: "Lado a lado",
+
+    // Import
+    importTitle: "Importar perfil",
+    importPrompt: "¿Agregar esta persona a tu dispositivo?",
+    importAdd: "Agregar a mi dispositivo",
+    importCancel: "Cancelar",
+    importInvalid: "Este enlace de perfil es inválido o está dañado.",
+    importSuccess: "Perfil agregado",
+    importMovements: "movimientos",
+    scanToImport: "Escanea para importar",
+    shareLink: "Enlace para compartir",
+    copyLink: "Copiar enlace",
+    goToCalculator: "Ir a la calculadora",
   },
   pt: {
     // App
@@ -177,6 +263,49 @@ export const translations = {
     grabThesePlates: "Pegue estes discos",
     perSide: "por lado",
     discsTotal: "discos no total",
+
+    // Advanced section
+    advanced: "Avançado",
+    allowRepeatSmallPlates: "Permitir discos pequenos repetidos",
+    allowRepeatSmallPlatesDesc: "Usar mais de um disco abaixo de 5kg / 10lb",
+    customBarWeight: "Peso de barra personalizado",
+    customBarWeightPlaceholder: "ex. 10",
+    useCustomBar: "Usar peso de barra personalizado",
+    plateInventory: "Discos disponíveis",
+    plateInventoryDesc: "Toque para alternar os discos que você tem",
+
+    // Profiles
+    profiles: "Perfis",
+    profilesDesc: "PRs de outras pessoas compartilhados com você",
+    me: "Eu",
+    gender: "Gênero",
+    male: "Homem",
+    female: "Mulher",
+    addProfile: "Adicionar pessoa",
+    deleteProfile: "Excluir",
+    shareMyProfile: "Compartilhar meus PRs",
+    shareProfile: "Compartilhar",
+    profileName: "Nome",
+    profileNamePlaceholder: "ex. Alex",
+    noProfiles: "Nenhuma pessoa salva ainda",
+
+    // Side by side
+    compareSideBySide: "Comparar lado a lado",
+    selectPeople: "Selecione pessoas para comparar",
+    sideBySide: "Lado a lado",
+
+    // Import
+    importTitle: "Importar perfil",
+    importPrompt: "Adicionar esta pessoa ao seu dispositivo?",
+    importAdd: "Adicionar ao meu dispositivo",
+    importCancel: "Cancelar",
+    importInvalid: "Este link de perfil é inválido ou está corrompido.",
+    importSuccess: "Perfil adicionado",
+    importMovements: "movimentos",
+    scanToImport: "Escaneie para importar",
+    shareLink: "Link para compartilhar",
+    copyLink: "Copiar link",
+    goToCalculator: "Ir para a calculadora",
   },
 } as const
 
