@@ -42,6 +42,10 @@ interface AdvancedSectionProps {
   canCompare: boolean
   onCompare: (selectedIds: string[]) => void
   isPercentages: boolean
+  multiPerson: boolean
+  onMultiPersonChange: (v: boolean) => void
+  canCalcEveryone: boolean
+  onCalculateEveryone: () => void
 }
 
 export function AdvancedSection(props: AdvancedSectionProps) {
@@ -69,6 +73,7 @@ export function AdvancedSection(props: AdvancedSectionProps) {
           <CustomBar {...props} />
           <PlateInventory {...props} />
           {props.isPercentages && <ProfilesPanel {...props} />}
+          {!props.isPercentages && <EveryonePanel {...props} />}
         </div>
       )}
     </div>
@@ -353,6 +358,41 @@ function ProfilesPanel({ units, canCompare, onCompare }: AdvancedSectionProps) {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// Manual mode: enable "calculate for everyone". People are added/edited via
+// tabs in the main UI; this is the enable + trigger.
+function EveryonePanel({
+  multiPerson,
+  onMultiPersonChange,
+  canCalcEveryone,
+  onCalculateEveryone,
+}: AdvancedSectionProps) {
+  const { t } = useLocale()
+  return (
+    <div className="space-y-3 border-t pt-4">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <div className="font-medium flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            {t("manualCompare")}
+          </div>
+          <div className="text-sm text-muted-foreground">{t("manualCompareDesc")}</div>
+        </div>
+        <Switch checked={multiPerson} onCheckedChange={onMultiPersonChange} />
+      </div>
+      {multiPerson && (
+        <Button
+          type="button"
+          className="w-full"
+          disabled={!canCalcEveryone}
+          onClick={onCalculateEveryone}
+        >
+          {t("manualCompare")}
+        </Button>
+      )}
     </div>
   )
 }

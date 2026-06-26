@@ -33,8 +33,6 @@ import { AlertCircle, Check } from "lucide-react"
 import { useLocale } from "@/lib/locale-context"
 import { useRouter } from "next/navigation"
 import { AdvancedSection } from "./advanced-section"
-import { MultiPersonWeights, type ManualPerson } from "./multi-person-weights"
-import { Switch } from "@/components/ui/switch"
 
 const STORAGE_KEYS = {
   UNITS: 'barbell-calc-units',
@@ -150,9 +148,13 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
     )
   }
 
-  // Multi-person manual weights — main-UI toggle, manual mode only.
+  // Multi-person manual weights — enabled from Advanced; each person edited via
+  // tabs in the main UI (active person's weights live in the `percentages` field).
   const [multiPerson, setMultiPerson] = useState(false)
-  const [manualPeople, setManualPeople] = useState<ManualPerson[]>([{ name: "", weights: [""] }])
+  const [people, setPeople] = useState<{ name: string; weights: string[] }[]>([
+    { name: "", weights: [""] },
+  ])
+  const [activePerson, setActivePerson] = useState(0)
 
   // 2. Create form schema based on initial state
   const formSchema = useMemo(() => createFormSchema(isPercentagesCalculation, t), [isPercentagesCalculation, t])
@@ -406,33 +408,53 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
     router.push(`/results?${params.toString()}`)
   }
 
-  // Manual mode: compute plates for several ad-hoc people, each with own weights.
-  const canCalcManual =
-    manualPeople.length >= 1 &&
-    manualPeople[0].weights.length >= 1 &&
-    manualPeople.every(p => p.weights.every(w => w.trim() !== '' && !isNaN(parseFloat(w))))
-
-  const handleCompareManual = () => {
-    const values = form.getValues()
-    const effectiveBar = useCustomBar && customBarWeight
-      ? customBarWeight
-      : values.barWeight || (units === 'KG' ? '20' : '45')
-    const people = manualPeople.map((p, i) => ({
-      name: p.name.trim() || `#${i + 1}`,
-      weights: p.weights.map(w => parseFloat(w)),
-    }))
-    const payload = {
-      units,
-      bar: effectiveBar,
-      allowRepeat: allowRepeatSmallPlates,
-      disabled: disabledPlates,
-      people,
+  // Multi-person (manual) — enable from Advanced, edit each person via tabs.
+  const enableMultiPerson = (on: boolean) => {
+    if (on) {
+      const cur = [...form.getValues().percentages]
+      setPeople([{ name: "", weights: cur.length ? cur : [""] }])
+      setActivePerson(0)
     }
-    const params = new URLSearchParams()
-    params.set('mode', 'manualcompare')
-    params.set('data', JSON.stringify(payload))
-    router.push(`/results?${params.toString()}`)
+    setMultiPerson(on)
   }
+
+  // Persist the active person's current weights, then load person k's.
+  const selectPerson = (k: number) => {
+    const cur = [...form.getValues().percentages]
+    setPeople(prev => prev.map((p, i) => (i === activePerson ? { ...p, weights: cur } : p)))
+    const target = people[k]?.weights ?? [""]
+    form.setValue('percentages', target.length ? target : [""], { shouldValidate: false })
+    setPercentageCount(Math.max(target.length, 1))
+    setActivePerson(k)
+  }
+
+  const addPerson = () => {
+    const cur = [...form.getValues().percentages]
+    const count = Math.max(cur.length, 1)
+    const newIdx = people.length
+    setPeople(prev => {
+      const committed = prev.map((p, i) => (i === activePerson ? { ...p, weights: cur } : p))
+      return [...committed, { name: "", weights: Array(count).fill("") }]
+    })
+    form.setValue('percentages', Array(count).fill(""), { shouldValidate: false })
+    setPercentageCount(count)
+    setActivePerson(newIdx)
+  }
+
+  const removeActivePerson = () => {
+    if (people.length <= 1) return
+    const idx = activePerson
+    const next = people.filter((_, i) => i !== idx)
+    const newActive = Math.max(0, idx - 1)
+    setPeople(next)
+    const target = next[newActive].weights
+    form.setValue('percentages', target.length ? target : [""], { shouldValidate: false })
+    setPercentageCount(Math.max(target.length, 1))
+    setActivePerson(newActive)
+  }
+
+  const setActiveName = (name: string) =>
+    setPeople(prev => prev.map((p, i) => (i === activePerson ? { ...p, name } : p)))
 
   const movementValue = form.watch('movement')
   const canCompare = isPercentagesCalculation && !!movementValue?.trim()
@@ -446,6 +468,41 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
 
   // Manual multi-person is only available in manual-weights mode.
   const isMultiManual = !isPercentagesCalculation && multiPerson
+
+  // People with the active person's in-progress weights pulled from the form.
+  const peopleForCalc = people.map((p, i) =>
+    i === activePerson && Array.isArray(percentagesWatch) ? { ...p, weights: percentagesWatch } : p
+  )
+  const everyoneCounts = peopleForCalc.map(p => p.weights.length)
+  const everyoneSameCount = everyoneCounts.every(c => c === everyoneCounts[0])
+  const everyoneFilled = peopleForCalc.every(
+    p => p.weights.length >= 1 &&
+      p.weights.every(w => w != null && w.trim() !== "" && !isNaN(parseFloat(w)))
+  )
+  const canCalcEveryone =
+    isMultiManual && peopleForCalc.length >= 1 && everyoneSameCount && everyoneFilled
+
+  const handleCalculateEveryone = () => {
+    const valuesForm = form.getValues()
+    const effectiveBar = useCustomBar && customBarWeight
+      ? customBarWeight
+      : valuesForm.barWeight || (units === 'KG' ? '20' : '45')
+    const payloadPeople = peopleForCalc.map((p, i) => ({
+      name: p.name.trim() || `#${i + 1}`,
+      weights: p.weights.map(w => parseFloat(w)),
+    }))
+    const payload = {
+      units,
+      bar: effectiveBar,
+      allowRepeat: allowRepeatSmallPlates,
+      disabled: disabledPlates,
+      people: payloadPeople,
+    }
+    const params = new URLSearchParams()
+    params.set('mode', 'manualcompare')
+    params.set('data', JSON.stringify(payload))
+    router.push(`/results?${params.toString()}`)
+  }
 
   const addPercentage = () => {
     setPercentageCount(prev => prev + 1)
@@ -762,14 +819,53 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
                 )}
               />
 
-              {/* Multi-person toggle — manual weights mode only */}
-              {!isPercentagesCalculation && (
-                <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
-                  <div>
-                    <div className="font-medium">{t("manualCompare")}</div>
-                    <div className="text-sm text-muted-foreground">{t("manualCompareDesc")}</div>
+              {/* Person tabs + name — only added when multi-person (manual) is on.
+                  The weight inputs below keep their original layout. */}
+              {isMultiManual && (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-1">
+                    {people.map((p, i) => (
+                      <Button
+                        key={i}
+                        type="button"
+                        size="sm"
+                        variant={i === activePerson ? "default" : "outline"}
+                        onClick={() => selectPerson(i)}
+                      >
+                        {p.name.trim() || `${t("profileName")} ${i + 1}`}
+                      </Button>
+                    ))}
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      onClick={addPerson}
+                      aria-label="add person"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <Switch checked={multiPerson} onCheckedChange={setMultiPerson} />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder={`${t("profileName")} ${activePerson + 1}`}
+                      value={people[activePerson]?.name ?? ""}
+                      onChange={(e) => setActiveName(e.target.value)}
+                      className="h-9"
+                    />
+                    {people.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={removeActivePerson}
+                        aria-label="remove person"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -777,38 +873,30 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <TypographyH3>{isPercentagesCalculation ? t("percentages") : t("weights")}</TypographyH3>
-                  {!isMultiManual && (
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={shareURL}
-                        className="flex items-center gap-2"
-                      >
-                        {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
-                        {copied ? t("copied") : t("share")}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={resetForm}
-                        className="flex items-center gap-2 text-destructive hover:text-destructive"
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                        {t("reset")}
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={shareURL}
+                      className="flex items-center gap-2"
+                    >
+                      {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+                      {copied ? t("copied") : t("share")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={resetForm}
+                      className="flex items-center gap-2 text-destructive hover:text-destructive"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      {t("reset")}
+                    </Button>
+                  </div>
                 </div>
-                {isMultiManual ? (
-                  <MultiPersonWeights
-                    units={units}
-                    people={manualPeople}
-                    onChange={setManualPeople}
-                  />
-                ) : Array.from({ length: percentageCount }).map((_, index) => (
+                {Array.from({ length: percentageCount }).map((_, index) => (
                   <FormField
                     key={index}
                     control={form.control}
@@ -862,7 +950,7 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
               </div>
 
               {/* Error message section */}
-              {!isMultiManual && form.formState.errors.percentages && (
+              {form.formState.errors.percentages && (
                 <div className="text-destructive text-sm flex items-center gap-2">
                   <AlertCircle className="h-4 w-4" />
                   <span>
@@ -874,47 +962,43 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
                 </div>
               )}
 
-              {!isMultiManual && (
-                <>
-                  <div className="flex flex-wrap gap-2">
-                    {showCommonPercentages
-                      ? COMMON_PERCENTAGES.map((p) => (
-                          <Button
-                            key={p}
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => appendValue(p)}
-                          >
-                            {p}%
-                          </Button>
-                        ))
-                      : stepButtons.map((step) => (
-                          <Button
-                            key={step}
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => appendWithStep(step)}
-                          >
-                            +{step}
-                          </Button>
-                        ))}
-                  </div>
+              <div className="flex flex-wrap gap-2">
+                {showCommonPercentages
+                  ? COMMON_PERCENTAGES.map((p) => (
+                      <Button
+                        key={p}
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => appendValue(p)}
+                      >
+                        {p}%
+                      </Button>
+                    ))
+                  : stepButtons.map((step) => (
+                      <Button
+                        key={step}
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => appendWithStep(step)}
+                      >
+                        +{step}
+                      </Button>
+                    ))}
+              </div>
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={addPercentage}
-                    className="w-full"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    {isPercentagesCalculation ? t("addPercentage") : t("addWeight")}
-                  </Button>
-                </>
-              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addPercentage}
+                className="w-full"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                {isPercentagesCalculation ? t("addPercentage") : t("addWeight")}
+              </Button>
 
               <AdvancedSection
                 units={units}
@@ -929,41 +1013,32 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
                 canCompare={canCompare}
                 onCompare={handleCompare}
                 isPercentages={isPercentagesCalculation}
+                multiPerson={multiPerson}
+                onMultiPersonChange={enableMultiPerson}
+                canCalcEveryone={canCalcEveryone}
+                onCalculateEveryone={handleCalculateEveryone}
               />
 
               <div className="space-y-4">
-                {isMultiManual ? (
-                  <Button
-                    type="button"
-                    className="w-full"
-                    disabled={!canCalcManual}
-                    onClick={handleCompareManual}
-                  >
-                    {t("manualCompare")}
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      type="submit"
-                      className="w-full"
-                    >
-                      {t("calculate")}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={async () => {
-                        const isValid = await form.trigger()
-                        if (isValid) {
-                          onSubmit(true)(form.getValues())
-                        }
-                      }}
-                    >
-                      {t("calculateIn")} {units === "KG" ? "LB" : "KG"}
-                    </Button>
-                  </>
-                )}
+                <Button
+                  type="submit"
+                  className="w-full"
+                >
+                  {t("calculate")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={async () => {
+                    const isValid = await form.trigger()
+                    if (isValid) {
+                      onSubmit(true)(form.getValues())
+                    }
+                  }}
+                >
+                  {t("calculateIn")} {units === "KG" ? "LB" : "KG"}
+                </Button>
               </div>
             </form>
           </Form>
