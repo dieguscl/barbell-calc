@@ -1,8 +1,9 @@
 "use client"
 
-import { Suspense, useMemo, useState } from "react"
+import { Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { TypographyH3 } from "@/components/ui/typogrpahy-h3"
 import { Check, UserPlus, AlertCircle } from "lucide-react"
 import { useLocale } from "@/lib/locale-context"
@@ -20,6 +21,12 @@ function ImportContent() {
 
   const payload = searchParams.get("p")
   const shared = useMemo(() => (payload ? decodeProfileShare(payload) : null), [payload])
+  const [name, setName] = useState("")
+
+  // Prefill the name with the shared one; the importer can override it.
+  useEffect(() => {
+    if (shared) setName(shared.name)
+  }, [shared])
 
   const genderLabel = shared
     ? shared.gender === "F"
@@ -30,7 +37,8 @@ function ImportContent() {
 
   const handleAdd = () => {
     if (!shared) return
-    upsertProfile(sharedToProfile(shared))
+    const finalName = name.trim() || shared.name
+    upsertProfile(sharedToProfile({ ...shared, name: finalName }))
     setAdded(true)
   }
 
@@ -58,8 +66,16 @@ function ImportContent() {
         </div>
       ) : (
         <div className="flex flex-col gap-4">
+          <div className="space-y-1">
+            <label className="text-sm font-medium">{t("profileName")}</label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t("profileNamePlaceholder")}
+              autoFocus
+            />
+          </div>
           <div className="rounded-lg border p-4">
-            <div className="text-xl font-semibold">{shared.name}</div>
             <div className="text-sm text-muted-foreground">
               {genderLabel} · {shared.units} · {movementCount} {t("importMovements")}
             </div>
@@ -74,7 +90,7 @@ function ImportContent() {
           </div>
           <p className="text-sm text-muted-foreground">{t("importPrompt")}</p>
           <div className="flex gap-2">
-            <Button className="flex-1" onClick={handleAdd}>
+            <Button className="flex-1" onClick={handleAdd} disabled={!name.trim()}>
               <UserPlus className="h-4 w-4 mr-2" />
               {t("importAdd")}
             </Button>

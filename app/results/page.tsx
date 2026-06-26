@@ -6,6 +6,7 @@ import { calculatePlateConfigurations, calculatePlateInventory } from "@/lib/cal
 import { PlateConfigurations } from "./components/plate-configurations"
 import { ResultsTitle } from "./components/results-title"
 import { SideBySide } from "./components/side-by-side"
+import { ManualSideBySide } from "./components/manual-side-by-side"
 import { Button } from "@/components/ui/button"
 import { Share2, Check } from "lucide-react"
 import { useLocale } from "@/lib/locale-context"
@@ -19,10 +20,54 @@ export default function ResultsPage() {
   // Route to the right view BEFORE any heavy hooks so each subcomponent keeps a
   // stable hook order (rules of hooks).
   const searchParams = useSearchParams()
-  if (searchParams.get("mode") === "sidebyside") {
+  const mode = searchParams.get("mode")
+  if (mode === "sidebyside") {
     return <SideBySideResult />
   }
+  if (mode === "manualcompare") {
+    return <ManualCompareResult />
+  }
   return <SingleResult />
+}
+
+function ManualCompareResult() {
+  const searchParams = useSearchParams()
+  const { t } = useLocale()
+
+  let payload: {
+    units?: string
+    bar?: string
+    allowRepeat?: boolean
+    disabled?: number[]
+    people?: { name: string; weights: number[] }[]
+  } | null = null
+  try {
+    payload = JSON.parse(searchParams.get("data") || "null")
+  } catch {
+    payload = null
+  }
+
+  const units: "KG" | "LB" = payload?.units === "LB" ? "LB" : "KG"
+  const bar = payload?.bar ? parseFloat(payload.bar) : units === "KG" ? 20 : 45
+  const people = Array.isArray(payload?.people) ? payload!.people : []
+  const allowRepeat = !!payload?.allowRepeat
+  const disabled = Array.isArray(payload?.disabled) ? payload!.disabled : []
+
+  return (
+    <main className="container mx-auto p-4 max-w-2xl mt-8">
+      <div className="flex items-center justify-between">
+        <ResultsTitle editUrl="/" />
+        <span className="text-sm text-muted-foreground">{t("sideBySide")}</span>
+      </div>
+      <ManualSideBySide
+        people={people}
+        units={units}
+        bar={bar}
+        allowRepeatSmallPlates={allowRepeat}
+        disabledFromUrl={disabled}
+      />
+    </main>
+  )
 }
 
 function SideBySideResult() {

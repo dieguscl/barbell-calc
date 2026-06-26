@@ -400,8 +400,34 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
     router.push(`/results?${params.toString()}`)
   }
 
+  // Manual mode: compute plates for several ad-hoc people, each with own weights.
+  const handleCompareManual = (people: { name: string; weights: number[] }[]) => {
+    const values = form.getValues()
+    const effectiveBar = useCustomBar && customBarWeight
+      ? customBarWeight
+      : values.barWeight || (units === 'KG' ? '20' : '45')
+    const payload = {
+      units,
+      bar: effectiveBar,
+      allowRepeat: allowRepeatSmallPlates,
+      disabled: disabledPlates,
+      people,
+    }
+    const params = new URLSearchParams()
+    params.set('mode', 'manualcompare')
+    params.set('data', JSON.stringify(payload))
+    router.push(`/results?${params.toString()}`)
+  }
+
   const movementValue = form.watch('movement')
   const canCompare = isPercentagesCalculation && !!movementValue?.trim()
+
+  // Show common percentages (instead of +5/+10) when in percentages mode and
+  // nothing has been entered yet.
+  const percentagesWatch = form.watch('percentages')
+  const hasAnyPercentage = Array.isArray(percentagesWatch) &&
+    percentagesWatch.some(v => v != null && v.trim() !== "" && !isNaN(parseFloat(v)))
+  const showCommonPercentages = isPercentagesCalculation && !hasAnyPercentage
 
   const addPercentage = () => {
     setPercentageCount(prev => prev + 1)
@@ -428,27 +454,34 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
       ? [2.5, 5, 10]
       : [5, 10, 20]
 
-  // Append a new row = last numeric value + step. If the trailing row is empty,
-  // fill it instead of leaving a blank row behind.
-  const appendWithStep = (step: number) => {
+  // Common percentages shown when in percentages mode with nothing entered yet.
+  const COMMON_PERCENTAGES = [70, 75, 80, 85, 90]
+
+  // Append a value as a new row. If the trailing row is empty, fill it instead
+  // of leaving a blank row behind.
+  const appendValue = (value: number) => {
     const current = [...form.getValues().percentages]
+    const v = parseFloat(value.toFixed(2))
+    const lastIdx = current.length - 1
+    if (current.length > 0 && (current[lastIdx] == null || current[lastIdx].trim() === "")) {
+      current[lastIdx] = String(v)
+    } else {
+      current.push(String(v))
+    }
+    form.setValue('percentages', current, { shouldValidate: true })
+    setPercentageCount(current.length)
+    // Intentionally no auto-focus: tapping +/common buttons shouldn't pop the
+    // keyboard. Editing the added value is a deliberate tap by the user.
+  }
+
+  // Append a new row = last numeric value + step.
+  const appendWithStep = (step: number) => {
+    const current = form.getValues().percentages
     const lastNumeric = [...current]
       .reverse()
       .find(v => v != null && v.trim() !== "" && !isNaN(parseFloat(v)))
     const base = lastNumeric !== undefined ? parseFloat(lastNumeric) : 0
-    const next = parseFloat((base + step).toFixed(2))
-    const lastIdx = current.length - 1
-    if (current.length > 0 && (current[lastIdx] == null || current[lastIdx].trim() === "")) {
-      current[lastIdx] = String(next)
-    } else {
-      current.push(String(next))
-    }
-    form.setValue('percentages', current, { shouldValidate: true })
-    setPercentageCount(current.length)
-    setTimeout(() => {
-      const inputs = document.querySelectorAll('input[name^="percentages."]');
-      (inputs[current.length - 1] as HTMLInputElement)?.focus();
-    }, 0);
+    appendValue(base + step)
   }
 
   const resetForm = () => {
@@ -805,18 +838,31 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
               )}
 
               <div className="flex flex-wrap gap-2">
-                {stepButtons.map((step) => (
-                  <Button
-                    key={step}
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => appendWithStep(step)}
-                  >
-                    +{step}
-                  </Button>
-                ))}
+                {showCommonPercentages
+                  ? COMMON_PERCENTAGES.map((p) => (
+                      <Button
+                        key={p}
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => appendValue(p)}
+                      >
+                        {p}%
+                      </Button>
+                    ))
+                  : stepButtons.map((step) => (
+                      <Button
+                        key={step}
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => appendWithStep(step)}
+                      >
+                        +{step}
+                      </Button>
+                    ))}
               </div>
 
               <Button
@@ -841,6 +887,8 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
                 onTogglePlate={togglePlate}
                 canCompare={canCompare}
                 onCompare={handleCompare}
+                isPercentages={isPercentagesCalculation}
+                onCompareManual={handleCompareManual}
               />
 
               <div className="space-y-4">

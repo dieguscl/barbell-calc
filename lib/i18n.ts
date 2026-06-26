@@ -86,9 +86,13 @@ export const translations = {
     noProfiles: "No saved people yet",
 
     // Side by side
-    compareSideBySide: "Compare side by side",
-    selectPeople: "Select people to compare",
-    sideBySide: "Side by side",
+    compareSideBySide: "Calculate for everyone",
+    selectPeople: "Select people",
+    sideBySide: "Everyone",
+    manualCompare: "Calculate for everyone",
+    manualCompareDesc: "Add people and give each their own weights (same count each)",
+    addPerson: "Add person",
+    weightNum: "Weight",
 
     // Import
     importTitle: "Import profile",
@@ -188,9 +192,13 @@ export const translations = {
     noProfiles: "Aún no hay personas guardadas",
 
     // Side by side
-    compareSideBySide: "Comparar lado a lado",
-    selectPeople: "Selecciona personas a comparar",
-    sideBySide: "Lado a lado",
+    compareSideBySide: "Calcular para todos",
+    selectPeople: "Selecciona personas",
+    sideBySide: "Todos",
+    manualCompare: "Calcular para todos",
+    manualCompareDesc: "Agrega personas y dale a cada una sus pesos (misma cantidad cada una)",
+    addPerson: "Agregar persona",
+    weightNum: "Peso",
 
     // Import
     importTitle: "Importar perfil",
@@ -290,9 +298,13 @@ export const translations = {
     noProfiles: "Nenhuma pessoa salva ainda",
 
     // Side by side
-    compareSideBySide: "Comparar lado a lado",
-    selectPeople: "Selecione pessoas para comparar",
-    sideBySide: "Lado a lado",
+    compareSideBySide: "Calcular para todos",
+    selectPeople: "Selecione pessoas",
+    sideBySide: "Todos",
+    manualCompare: "Calcular para todos",
+    manualCompareDesc: "Adicione pessoas e dê a cada uma seus pesos (mesma quantidade cada)",
+    addPerson: "Adicionar pessoa",
+    weightNum: "Peso",
 
     // Import
     importTitle: "Importar perfil",

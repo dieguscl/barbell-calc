@@ -88,6 +88,17 @@ export function deleteProfile(id: string): Profile[] {
   return profiles
 }
 
+/** Rename a profile (id stays stable to keep references intact). */
+export function renameProfile(id: string, newName: string): Profile[] {
+  const name = newName.trim()
+  if (!name) return loadProfiles()
+  const profiles = loadProfiles().map((p) =>
+    p.id === id ? { ...p, name } : p
+  )
+  saveProfiles(profiles)
+  return profiles
+}
+
 /**
  * Build the device owner's profile from the existing single-user storage so it
  * can be listed alongside imported profiles. Gender is unknown for "Me", so we

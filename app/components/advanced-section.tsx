@@ -12,12 +12,17 @@ import {
   Share2,
   Check,
   Users,
+  Pencil,
+  Eye,
+  X,
+  Plus,
 } from "lucide-react"
 import { useLocale } from "@/lib/locale-context"
 import { AVAILABLE_PLATES } from "@/lib/calculations"
 import {
   loadProfiles,
   deleteProfile as deleteProfileStore,
+  renameProfile as renameProfileStore,
   buildMeProfile,
   buildShareUrl,
   type Profile,
@@ -37,6 +42,8 @@ interface AdvancedSectionProps {
   onTogglePlate: (plate: number) => void
   canCompare: boolean
   onCompare: (selectedIds: string[]) => void
+  isPercentages: boolean
+  onCompareManual: (people: { name: string; weights: number[] }[]) => void
 }
 
 export function AdvancedSection(props: AdvancedSectionProps) {
@@ -64,6 +71,7 @@ export function AdvancedSection(props: AdvancedSectionProps) {
           <CustomBar {...props} />
           <PlateInventory {...props} />
           <ProfilesPanel {...props} />
+          {!props.isPercentages && <ManualComparePanel {...props} />}
         </div>
       )}
     </div>
@@ -150,12 +158,28 @@ function ProfilesPanel({ units, canCompare, onCompare }: AdvancedSectionProps) {
   const [shareName, setShareName] = useState("")
   const [shareGender, setShareGender] = useState<Gender>("M")
   const [copied, setCopied] = useState(false)
+  const [me, setMe] = useState<Profile | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draftName, setDraftName] = useState("")
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   useEffect(() => {
     setProfiles(loadProfiles())
-    const me = buildMeProfile()
-    setShareGender(me.gender)
-  }, [])
+    const meProfile = buildMeProfile(t("me"))
+    setMe(meProfile)
+    setShareGender(meProfile.gender)
+  }, [t])
+
+  const startRename = (p: Profile) => {
+    setEditingId(p.id)
+    setDraftName(p.name)
+  }
+  const saveRename = () => {
+    if (editingId) setProfiles(renameProfileStore(editingId, draftName))
+    setEditingId(null)
+  }
+  const toggleExpand = (id: string) =>
+    setExpandedId((cur) => (cur === id ? null : id))
 
   const shareUrl = useMemo(() => {
     if (typeof window === "undefined") return ""
@@ -184,7 +208,7 @@ function ProfilesPanel({ units, canCompare, onCompare }: AdvancedSectionProps) {
     }
   }
 
-  const everyone = [{ id: ME_ID, name: t("me"), gender: "M" as Gender }, ...profiles]
+  const everyone: Profile[] = me ? [me, ...profiles] : profiles
 
   return (
     <div className="space-y-4">
@@ -196,32 +220,82 @@ function ProfilesPanel({ units, canCompare, onCompare }: AdvancedSectionProps) {
         <div className="text-sm text-muted-foreground">{t("profilesDesc")}</div>
       </div>
 
-      {/* People list with compare selection */}
+      {/* People list: compare selection + rename + inspect */}
       <div className="space-y-2">
-        {everyone.map((p) => (
-          <div key={p.id} className="flex items-center justify-between gap-2 rounded-md border p-2">
-            <label className="flex items-center gap-2 flex-1 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={selected.includes(p.id)}
-                onChange={() => toggleSelected(p.id)}
-                className="h-4 w-4"
-              />
-              <span className="capitalize">{p.name}</span>
-            </label>
-            {p.id !== ME_ID && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-destructive hover:text-destructive"
-                onClick={() => handleDelete(p.id)}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
-        ))}
+        {everyone.map((p) => {
+          const isMe = p.id === ME_ID
+          const movementEntries = Object.entries(p.movements)
+          return (
+            <div key={p.id} className="rounded-md border">
+              <div className="flex items-center gap-2 p-2">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(p.id)}
+                  onChange={() => toggleSelected(p.id)}
+                  className="h-4 w-4"
+                />
+                {editingId === p.id ? (
+                  <>
+                    <Input
+                      value={draftName}
+                      onChange={(e) => setDraftName(e.target.value)}
+                      autoFocus
+                      className="h-8 flex-1"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveRename()
+                        if (e.key === "Escape") setEditingId(null)
+                      }}
+                    />
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={saveRename} aria-label="save">
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingId(null)} aria-label="cancel">
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <button type="button" className="flex-1 text-left capitalize" onClick={() => toggleExpand(p.id)}>
+                      {p.name}
+                    </button>
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleExpand(p.id)} aria-label="inspect">
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                    {!isMe && (
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => startRename(p)} aria-label="rename">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {!isMe && (
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDelete(p.id)} aria-label="delete">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+              {expandedId === p.id && (
+                <div className="border-t p-3 text-sm space-y-1">
+                  <div className="text-muted-foreground">
+                    {p.gender === "F" ? t("female") : t("male")} · {p.units}
+                  </div>
+                  {movementEntries.length === 0 ? (
+                    <div className="text-muted-foreground">0 {t("importMovements")}</div>
+                  ) : (
+                    <ul className="space-y-1">
+                      {movementEntries.map(([m, { pr }]) => (
+                        <li key={m} className="flex justify-between">
+                          <span className="capitalize">{m}</span>
+                          <span className="font-medium">{pr} {p.units}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
         {profiles.length === 0 && (
           <div className="text-sm text-muted-foreground">{t("noProfiles")}</div>
         )}
@@ -282,6 +356,121 @@ function ProfilesPanel({ units, canCompare, onCompare }: AdvancedSectionProps) {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// Manual-weights mode: ad-hoc people, each with their own list of weights.
+// Column count is shared, so everyone always has the same number of weights.
+function ManualComparePanel({ onCompareManual }: AdvancedSectionProps) {
+  const { t } = useLocale()
+  type Person = { name: string; weights: string[] }
+  const [people, setPeople] = useState<Person[]>([{ name: "", weights: [""] }])
+  const weightCount = people[0]?.weights.length ?? 1
+
+  const addPerson = () =>
+    setPeople((prev) => [...prev, { name: "", weights: Array(weightCount).fill("") }])
+  const removePerson = (i: number) =>
+    setPeople((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev))
+  const addWeightColumn = () =>
+    setPeople((prev) => prev.map((p) => ({ ...p, weights: [...p.weights, ""] })))
+  const removeLastWeightColumn = () =>
+    setPeople((prev) =>
+      weightCount > 1 ? prev.map((p) => ({ ...p, weights: p.weights.slice(0, -1) })) : prev
+    )
+  const setName = (i: number, val: string) =>
+    setPeople((prev) => prev.map((p, idx) => (idx === i ? { ...p, name: val } : p)))
+  const setWeight = (i: number, j: number, val: string) =>
+    setPeople((prev) =>
+      prev.map((p, idx) =>
+        idx === i ? { ...p, weights: p.weights.map((w, wi) => (wi === j ? val : w)) } : p
+      )
+    )
+
+  // Enable only when every slot for every person is a valid number.
+  const canCalc =
+    people.length >= 1 &&
+    weightCount >= 1 &&
+    people.every((p) => p.weights.every((w) => w.trim() !== "" && !isNaN(parseFloat(w))))
+
+  const handleCalc = () => {
+    const payload = people.map((p, i) => ({
+      name: p.name.trim() || `#${i + 1}`,
+      weights: p.weights.map((w) => parseFloat(w)),
+    }))
+    onCompareManual(payload)
+  }
+
+  return (
+    <div className="space-y-4 border-t pt-4">
+      <div>
+        <div className="font-medium flex items-center gap-2">
+          <Users className="h-4 w-4" />
+          {t("manualCompare")}
+        </div>
+        <div className="text-sm text-muted-foreground">{t("manualCompareDesc")}</div>
+      </div>
+
+      {people.map((p, i) => (
+        <div key={i} className="rounded-md border p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder={t("profileNamePlaceholder")}
+              value={p.name}
+              onChange={(e) => setName(i, e.target.value)}
+              className="h-8"
+            />
+            {people.length > 1 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-destructive hover:text-destructive"
+                onClick={() => removePerson(i)}
+                aria-label="remove person"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {p.weights.map((w, j) => (
+              <div key={j} className="flex flex-col">
+                <span className="text-xs text-muted-foreground">{t("weightNum")} {j + 1}</span>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  value={w}
+                  onChange={(e) => setWeight(i, j, e.target.value)}
+                  placeholder={t("weightPlaceholder")}
+                  className="h-8 w-24"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={addPerson}>
+          <Plus className="h-4 w-4 mr-1" />
+          {t("addPerson")}
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={addWeightColumn}>
+          <Plus className="h-4 w-4 mr-1" />
+          {t("addWeight")}
+        </Button>
+        {weightCount > 1 && (
+          <Button type="button" variant="ghost" size="sm" onClick={removeLastWeightColumn}>
+            <X className="h-4 w-4 mr-1" />
+            {t("weightNum")}
+          </Button>
+        )}
+      </div>
+
+      <Button type="button" className="w-full" disabled={!canCalc} onClick={handleCalc}>
+        {t("manualCompare")}
+      </Button>
     </div>
   )
 }
