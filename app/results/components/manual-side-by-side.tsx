@@ -4,6 +4,7 @@ import { useState } from "react"
 import { calculatePlateConfigurations, calculatePlateInventory } from "@/lib/calculations"
 import { PlateConfigurations } from "./plate-configurations"
 import { useLocale } from "@/lib/locale-context"
+import { nameColor } from "@/lib/name-color"
 import { AlertCircle } from "lucide-react"
 
 interface ManualPerson {
@@ -49,7 +50,12 @@ export function ManualSideBySide({
         const inventory = calculatePlateInventory(configs)
         return (
           <div key={i} className="space-y-2">
-            <div className="text-2xl font-bold capitalize">{person.name}</div>
+            <div
+              className="text-2xl font-bold capitalize"
+              style={{ color: nameColor(person.name, i) }}
+            >
+              {person.name}
+            </div>
             <PlateConfigurations
               configurations={configs}
               baseInventory={inventory}

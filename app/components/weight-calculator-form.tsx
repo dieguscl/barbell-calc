@@ -33,6 +33,7 @@ import { AlertCircle, Check } from "lucide-react"
 import { useLocale } from "@/lib/locale-context"
 import { useRouter } from "next/navigation"
 import { AdvancedSection } from "./advanced-section"
+import { nameColor } from "@/lib/name-color"
 
 const STORAGE_KEYS = {
   UNITS: 'barbell-calc-units',
@@ -832,6 +833,10 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
                         variant={i === activePerson ? "default" : "outline"}
                         onClick={() => selectPerson(i)}
                       >
+                        <span
+                          className="inline-block h-2 w-2 rounded-full mr-1.5 shrink-0"
+                          style={{ backgroundColor: nameColor(p.name, i) }}
+                        />
                         {p.name.trim() || `${t("profileName")} ${i + 1}`}
                       </Button>
                     ))}
