@@ -467,6 +467,15 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
     percentagesWatch.some(v => v != null && v.trim() !== "" && !isNaN(parseFloat(v)))
   const showCommonPercentages = isPercentagesCalculation && !hasAnyPercentage
 
+  // Common starting weights when none entered (manual mode). Gender is inferred
+  // from the selected bar: women's bar (15kg / 35lb) -> women's set.
+  const barWeightValue = form.watch('barWeight')
+  const isWomensBar = barWeightValue === "15" || barWeightValue === "35"
+  const commonWeights = units === "KG"
+    ? (isWomensBar ? [45, 55, 65, 75] : [50, 60, 70, 100])
+    : (isWomensBar ? [95, 115, 135, 165] : [115, 135, 155, 225])
+  const showCommonWeights = !isPercentagesCalculation && !hasAnyPercentage
+
   // Manual multi-person is only available in manual-weights mode.
   const isMultiManual = !isPercentagesCalculation && multiPerson
 
@@ -981,18 +990,31 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
                         {p}%
                       </Button>
                     ))
-                  : stepButtons.map((step) => (
-                      <Button
-                        key={step}
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => appendWithStep(step)}
-                      >
-                        +{step}
-                      </Button>
-                    ))}
+                  : showCommonWeights
+                    ? commonWeights.map((w) => (
+                        <Button
+                          key={w}
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => appendValue(w)}
+                        >
+                          {w}{units === "KG" ? "kg" : "lb"}
+                        </Button>
+                      ))
+                    : stepButtons.map((step) => (
+                        <Button
+                          key={step}
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => appendWithStep(step)}
+                        >
+                          +{step}
+                        </Button>
+                      ))}
               </div>
 
               <Button
