@@ -34,6 +34,16 @@ import { useLocale } from "@/lib/locale-context"
 import { useRouter } from "next/navigation"
 import { AdvancedSection } from "./advanced-section"
 import { nameColor } from "@/lib/name-color"
+import {
+  loadCommonWeights,
+  saveCommonWeights,
+  weightsKey,
+  DEFAULT_COMMON_WEIGHTS,
+  type CommonWeightsStore,
+  loadCommonPercentages,
+  saveCommonPercentages,
+  DEFAULT_COMMON_PERCENTAGES,
+} from "@/lib/common-weights"
 
 const STORAGE_KEYS = {
   UNITS: 'barbell-calc-units',
@@ -115,6 +125,8 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
   const [useCustomBar, setUseCustomBar] = useState(false)
   const [customBarWeight, setCustomBarWeight] = useState("")
   const [disabledPlates, setDisabledPlates] = useState<number[]>([])
+  const [commonWeightsStore, setCommonWeightsStore] = useState<CommonWeightsStore>(DEFAULT_COMMON_WEIGHTS)
+  const [commonPercentages, setCommonPercentages] = useState<number[]>(DEFAULT_COMMON_PERCENTAGES)
 
   // Load persisted advanced settings on mount
   useEffect(() => {
@@ -126,6 +138,8 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
       const dp = JSON.parse(localStorage.getItem(STORAGE_KEYS.DISABLED_PLATES) || '[]')
       if (Array.isArray(dp)) setDisabledPlates(dp)
     } catch { /* ignore */ }
+    setCommonWeightsStore(loadCommonWeights())
+    setCommonPercentages(loadCommonPercentages())
   }, [])
 
   // Persist advanced settings
@@ -471,10 +485,18 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
   // from the selected bar: women's bar (15kg / 35lb) -> women's set.
   const barWeightValue = form.watch('barWeight')
   const isWomensBar = barWeightValue === "15" || barWeightValue === "35"
-  const commonWeights = units === "KG"
-    ? (isWomensBar ? [45, 55, 65, 75] : [50, 60, 70, 100])
-    : (isWomensBar ? [95, 115, 135, 165] : [115, 135, 155, 225])
+  const commonWeightsKey = weightsKey(units, isWomensBar)
+  const commonWeights =
+    commonWeightsStore[commonWeightsKey] ?? DEFAULT_COMMON_WEIGHTS[commonWeightsKey] ?? []
   const showCommonWeights = !isPercentagesCalculation && !hasAnyPercentage
+
+  const updateCommonWeights = (list: number[]) => {
+    setCommonWeightsStore(prev => {
+      const next = { ...prev, [commonWeightsKey]: list }
+      saveCommonWeights(next)
+      return next
+    })
+  }
 
   // Manual multi-person is only available in manual-weights mode.
   const isMultiManual = !isPercentagesCalculation && multiPerson
@@ -539,8 +561,11 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
       ? [2.5, 5, 10]
       : [5, 10, 20]
 
-  // Common percentages shown when in percentages mode with nothing entered yet.
-  const COMMON_PERCENTAGES = [70, 75, 80, 85, 90]
+  // Persist edited common percentages.
+  const updateCommonPercentages = (list: number[]) => {
+    setCommonPercentages(list)
+    saveCommonPercentages(list)
+  }
 
   // Append a value as a new row. If the trailing row is empty, fill it instead
   // of leaving a blank row behind.
@@ -978,7 +1003,7 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
 
               <div className="flex flex-wrap gap-2">
                 {showCommonPercentages
-                  ? COMMON_PERCENTAGES.map((p) => (
+                  ? commonPercentages.map((p) => (
                       <Button
                         key={p}
                         type="button"
@@ -1044,6 +1069,11 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
                 onMultiPersonChange={enableMultiPerson}
                 canCalcEveryone={canCalcEveryone}
                 onCalculateEveryone={handleCalculateEveryone}
+                commonWeights={commonWeights}
+                onCommonWeightsChange={updateCommonWeights}
+                commonWeightsContext={`${units} · ${isWomensBar ? t("female") : t("male")}`}
+                commonPercentages={commonPercentages}
+                onCommonPercentagesChange={updateCommonPercentages}
               />
 
               <div className="space-y-4">

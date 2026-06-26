@@ -15,6 +15,7 @@ import {
   Pencil,
   Eye,
   X,
+  Plus,
 } from "lucide-react"
 import { useLocale } from "@/lib/locale-context"
 import { AVAILABLE_PLATES } from "@/lib/calculations"
@@ -46,6 +47,11 @@ interface AdvancedSectionProps {
   onMultiPersonChange: (v: boolean) => void
   canCalcEveryone: boolean
   onCalculateEveryone: () => void
+  commonWeights: number[]
+  onCommonWeightsChange: (list: number[]) => void
+  commonWeightsContext: string
+  commonPercentages: number[]
+  onCommonPercentagesChange: (list: number[]) => void
 }
 
 export function AdvancedSection(props: AdvancedSectionProps) {
@@ -72,7 +78,25 @@ export function AdvancedSection(props: AdvancedSectionProps) {
           <AlgorithmToggle {...props} />
           <CustomBar {...props} />
           <PlateInventory {...props} />
+          {props.isPercentages && (
+            <SuggestionEditor
+              title={t("commonPercentages")}
+              desc={t("commonPercentagesDesc")}
+              values={props.commonPercentages}
+              onChange={props.onCommonPercentagesChange}
+              suffix="%"
+            />
+          )}
           {props.isPercentages && <ProfilesPanel {...props} />}
+          {!props.isPercentages && (
+            <SuggestionEditor
+              title={t("commonWeights")}
+              desc={`${t("commonWeightsDesc")} · ${props.commonWeightsContext}`}
+              values={props.commonWeights}
+              onChange={props.onCommonWeightsChange}
+              suffix={props.units === "KG" ? "kg" : "lb"}
+            />
+          )}
           {!props.isPercentages && <EveryonePanel {...props} />}
         </div>
       )}
@@ -377,6 +401,79 @@ function EveryonePanel({ multiPerson, onMultiPersonChange }: AdvancedSectionProp
           <div className="text-sm text-muted-foreground">{t("manualCompareDesc")}</div>
         </div>
         <Switch checked={multiPerson} onCheckedChange={onMultiPersonChange} />
+      </div>
+    </div>
+  )
+}
+
+// Editable list of suggestion chips (common weights / percentages). Persisted
+// by the parent via onChange.
+function SuggestionEditor({
+  title,
+  desc,
+  values,
+  onChange,
+  suffix,
+}: {
+  title: string
+  desc: string
+  values: number[]
+  onChange: (list: number[]) => void
+  suffix: string
+}) {
+  const { t } = useLocale()
+  const [draft, setDraft] = useState("")
+
+  const add = () => {
+    const n = parseFloat(draft)
+    if (isNaN(n)) return
+    if (!values.includes(n)) onChange([...values, n].sort((a, b) => a - b))
+    setDraft("")
+  }
+  const remove = (v: number) => onChange(values.filter((x) => x !== v))
+
+  return (
+    <div className="space-y-2 border-t pt-4">
+      <div className="font-medium">{title}</div>
+      <div className="text-sm text-muted-foreground">{desc}</div>
+      <div className="flex flex-wrap gap-2">
+        {values.length === 0 && <span className="text-sm text-muted-foreground">—</span>}
+        {values.map((v) => (
+          <span
+            key={v}
+            className="inline-flex items-center gap-1 bg-muted px-2 py-1 rounded-md text-sm font-medium"
+          >
+            {v}{suffix}
+            <button
+              type="button"
+              onClick={() => remove(v)}
+              className="text-muted-foreground hover:text-destructive"
+              aria-label="remove"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <Input
+          type="number"
+          inputMode="decimal"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={suffix === "%" ? t("percentagePlaceholder") : t("weightPlaceholder")}
+          className="h-9"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault()
+              add()
+            }
+          }}
+        />
+        <Button type="button" variant="outline" size="sm" onClick={add}>
+          <Plus className="h-4 w-4 mr-1" />
+          {t("addNew")}
+        </Button>
       </div>
     </div>
   )

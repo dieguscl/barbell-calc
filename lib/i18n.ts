@@ -93,6 +93,10 @@ export const translations = {
     manualCompareDesc: "Add people and give each their own weights (same count each)",
     addPerson: "Add person",
     weightNum: "Weight",
+    commonWeights: "Common weights",
+    commonWeightsDesc: "Quick suggestions when no weight is entered",
+    commonPercentages: "Common percentages",
+    commonPercentagesDesc: "Quick suggestions when no percentage is entered",
 
     // Import
     importTitle: "Import profile",
@@ -199,6 +203,10 @@ export const translations = {
     manualCompareDesc: "Agrega personas y dale a cada una sus pesos (misma cantidad cada una)",
     addPerson: "Agregar persona",
     weightNum: "Peso",
+    commonWeights: "Pesos comunes",
+    commonWeightsDesc: "Sugerencias rápidas cuando no hay peso ingresado",
+    commonPercentages: "Porcentajes comunes",
+    commonPercentagesDesc: "Sugerencias rápidas cuando no hay porcentaje ingresado",
 
     // Import
     importTitle: "Importar perfil",
@@ -305,6 +313,10 @@ export const translations = {
     manualCompareDesc: "Adicione pessoas e dê a cada uma seus pesos (mesma quantidade cada)",
     addPerson: "Adicionar pessoa",
     weightNum: "Peso",
+    commonWeights: "Pesos comuns",
+    commonWeightsDesc: "Sugestões rápidas quando nenhum peso é inserido",
+    commonPercentages: "Porcentagens comuns",
+    commonPercentagesDesc: "Sugestões rápidas quando nenhuma porcentagem é inserida",
 
     // Import
     importTitle: "Importar perfil",
