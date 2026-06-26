@@ -364,12 +364,7 @@ function ProfilesPanel({ units, canCompare, onCompare }: AdvancedSectionProps) {
 
 // Manual mode: enable "calculate for everyone". People are added/edited via
 // tabs in the main UI; this is the enable + trigger.
-function EveryonePanel({
-  multiPerson,
-  onMultiPersonChange,
-  canCalcEveryone,
-  onCalculateEveryone,
-}: AdvancedSectionProps) {
+function EveryonePanel({ multiPerson, onMultiPersonChange }: AdvancedSectionProps) {
   const { t } = useLocale()
   return (
     <div className="space-y-3 border-t pt-4">
@@ -383,16 +378,6 @@ function EveryonePanel({
         </div>
         <Switch checked={multiPerson} onCheckedChange={onMultiPersonChange} />
       </div>
-      {multiPerson && (
-        <Button
-          type="button"
-          className="w-full"
-          disabled={!canCalcEveryone}
-          onClick={onCalculateEveryone}
-        >
-          {t("manualCompare")}
-        </Button>
-      )}
     </div>
   )
 }

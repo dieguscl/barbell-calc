@@ -1025,25 +1025,38 @@ export function WeightCalculatorForm({}: WeightCalculatorFormProps = {}) {
               />
 
               <div className="space-y-4">
-                <Button
-                  type="submit"
-                  className="w-full"
-                >
-                  {t("calculate")}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={async () => {
-                    const isValid = await form.trigger()
-                    if (isValid) {
-                      onSubmit(true)(form.getValues())
-                    }
-                  }}
-                >
-                  {t("calculateIn")} {units === "KG" ? "LB" : "KG"}
-                </Button>
+                {isMultiManual ? (
+                  <Button
+                    type="button"
+                    className="w-full"
+                    disabled={!canCalcEveryone}
+                    onClick={handleCalculateEveryone}
+                  >
+                    {t("calculate")}
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      type="submit"
+                      className="w-full"
+                    >
+                      {t("calculate")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={async () => {
+                        const isValid = await form.trigger()
+                        if (isValid) {
+                          onSubmit(true)(form.getValues())
+                        }
+                      }}
+                    >
+                      {t("calculateIn")} {units === "KG" ? "LB" : "KG"}
+                    </Button>
+                  </>
+                )}
               </div>
             </form>
           </Form>
